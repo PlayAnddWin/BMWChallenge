@@ -3,3 +3,17 @@ BMW-Data
 BMW-Data/
 .venv/
 scratch/
+
+.env
+__pycache__/
+pipeline/__pycache__/
+.env.*
+!.env.example
+var/
+output/
+data/
+BMW-Processed/
+.pytest_cache/
+*.pyc
+.coverage*
+htmlcov/

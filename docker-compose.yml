@@ -1,0 +1,58 @@
+services:
+  neo4j:
+    image: neo4j:5.20-community
+    ports:
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-bmwpassword}
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  api:
+    build: .
+    command: python -m uvicorn services.api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-bmwpassword}
+      NEO4J_DATABASE: ${NEO4J_DATABASE:-neo4j}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-sonnet-4-6}
+      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      API_PREFIX: ${API_PREFIX:-/api}
+      BACKEND_ADAPTER_FACTORY: ${BACKEND_ADAPTER_FACTORY:-}
+      BMW_DATA_DIR: /data/processed
+      BMW_RAW_DATA_DIR: /data/raw
+      BMW_OUTPUT_DIR: /app/var/exports
+    volumes:
+      - ${BMW_DATA_DIR:-./var/processed}:/data/processed:ro
+      - ${BMW_RAW_DATA_DIR:-./BMW-Data}:/data/raw:ro
+      - ./var/exports:/app/var/exports
+    depends_on:
+      neo4j:
+        condition: service_healthy
+  ui:
+    build: .
+    profiles: [ui]
+    command: streamlit run pipeline/08_streamlit_ui.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "127.0.0.1:8501:8501"
+    environment:
+      API_BASE_URL: http://api:8000
+      API_HOST: api
+      API_PORT: "8000"
+    depends_on:
+      - api
+volumes:
+  neo4j_data:
+  neo4j_logs:
