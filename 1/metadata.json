@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4M0Y1T0TF9EPR153J182Y00",
+  "session_id": "ses_ed8f74707ffeW0lnVMc2FpaExn",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-10T23:04:08.454930558Z",
+  "branch": "fix/role1-local-data-pipeline",
+  "checkpoints_count": 6,
+  "files_touched": [
+    "README.md"
+  ],
+  "agent": "OpenCode",
+  "model": "gpt-6.1-sol",
+  "turn_id": "cf9fdcd6cd7a",
+  "checkpoint_transcript_start": 251,
+  "transcript_lines_at_start": 251,
+  "compact_transcript_start": 251,
+  "token_usage": {
+    "input_tokens": 0,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "output_tokens": 0,
+    "api_call_count": 0
+  },
+  "session_metrics": {
+    "turn_count": 16
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-10-10T23:04:08.082231422Z",
+    "agent_lines": 50,
+    "agent_removed": 0,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 50,
+    "total_lines_changed": 50,
+    "agent_percentage": 100,
+    "metric_version": 2
+  }
+}
