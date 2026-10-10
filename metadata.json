@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4M0XEA7KMXGSF69DCY55CJK",
+  "strategy": "manual-commit",
+  "branch": "fix/role1-local-data-pipeline",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "pipeline/00_preprocess.py",
+    "pipeline/01_load_neo4j.py",
+    "pipeline/02_build_kg.py",
+    "pipeline/03_vfc_analysis.py",
+    "pipeline/requirements-data.txt",
+    "services/evidence.py",
+    "services/ingestion.py",
+    "tests/data/test_evidence.py",
+    "tests/data/test_ingestion.py",
+    "tests/data/test_live_neo4j.py",
+    "tests/data/test_loader.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 39,
+    "cache_creation_tokens": 25084,
+    "cache_read_tokens": 210636,
+    "output_tokens": 2889,
+    "api_call_count": 13
+  }
+}
