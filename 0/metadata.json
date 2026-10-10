@@ -1,0 +1,142 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4KR753M7V667VKDAJNNA7G1",
+  "session_id": "ses_ed8f74707ffeW0lnVMc2FpaExn",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-10T20:31:47.06020758Z",
+  "branch": "feat/ai-requirements-review-engine",
+  "checkpoints_count": 10,
+  "save_step_count": 7,
+  "files_touched": [
+    ".env.example",
+    "CONFIGURATION.md",
+    "README.md",
+    "config.py",
+    "contracts/__init__.py",
+    "contracts/fixture_case.json",
+    "contracts/intelligence.py",
+    "docs/ROLE2_HANDOFF.md",
+    "docs/ROLE2_LIVE_COVERAGE.md",
+    "docs/ROLE2_OUTPUT_QUALITY.md",
+    "pyproject.toml",
+    "requirements-dev.txt",
+    "requirements-role2.lock",
+    "requirements.txt",
+    "services/__init__.py",
+    "services/agents.py",
+    "services/analysis.py",
+    "services/cache.py",
+    "services/common.py",
+    "services/drafting.py",
+    "services/interfaces.py",
+    "services/llm_client.py",
+    "services/quality.py",
+    "services/retrieval.py",
+    "services/review_assistant.py",
+    "services/signals.py",
+    "services/tool_registry.py",
+    "tests/__init__.py",
+    "tests/intelligence/__init__.py",
+    "tests/intelligence/conftest.py",
+    "tests/intelligence/demo.py",
+    "tests/intelligence/fakes.py",
+    "tests/intelligence/test_agents_and_tools.py",
+    "tests/intelligence/test_analysis.py",
+    "tests/intelligence/test_cache.py",
+    "tests/intelligence/test_configuration_and_model.py",
+    "tests/intelligence/test_drafting.py",
+    "tests/intelligence/test_end_to_end.py",
+    "tests/intelligence/test_live.py",
+    "tests/intelligence/test_live_evaluation.py",
+    "tests/intelligence/test_live_openai_fixture.py",
+    "tests/intelligence/test_quality.py",
+    "tests/intelligence/test_responses_adapter.py",
+    "tests/intelligence/test_retrieval.py",
+    "tests/intelligence/test_review.py",
+    "tests/intelligence/test_signals.py"
+  ],
+  "agent": "OpenCode",
+  "model": "gpt-6.1-sol",
+  "turn_id": "113d72d29e08",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 519,
+    "cache_creation_tokens": 457035,
+    "cache_read_tokens": 43093260,
+    "output_tokens": 115897,
+    "api_call_count": 176
+  },
+  "session_metrics": {
+    "turn_count": 10
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-10-10T20:31:46.823023902Z",
+    "agent_lines": 4712,
+    "agent_removed": 2,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 4712,
+    "total_lines_changed": 4714,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 2643,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 2643,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 3012,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 5,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 6,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 3634,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 7,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 4199,
+      "agent_lines_removed": 2
+    },
+    {
+      "checkpoint_number": 8,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 4712,
+      "agent_lines_removed": 2
+    }
+  ]
+}
