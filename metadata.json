@@ -3,15 +3,20 @@
   "checkpoint_id": "01M4M0XEA7KMXGSF69DCY55CJK",
   "strategy": "manual-commit",
   "branch": "fix/role1-local-data-pipeline",
-  "checkpoints_count": 3,
+  "checkpoints_count": 9,
   "files_touched": [
+    "CONFIGURATION.md",
+    "compose.data.yaml",
+    "config.py",
     "pipeline/00_preprocess.py",
     "pipeline/01_load_neo4j.py",
     "pipeline/02_build_kg.py",
     "pipeline/03_vfc_analysis.py",
+    "pipeline/README_DATA.md",
     "pipeline/requirements-data.txt",
     "services/evidence.py",
     "services/ingestion.py",
+    "tests/data/test_configuration.py",
     "tests/data/test_evidence.py",
     "tests/data/test_ingestion.py",
     "tests/data/test_live_neo4j.py",
@@ -24,13 +29,20 @@
       "compact_transcript": "/0/transcript.jsonl",
       "content_hash": "/0/content_hash.txt",
       "prompt": "/0/prompt.txt"
+    },
+    {
+      "metadata": "/1/metadata.json",
+      "transcript": "/1/full.jsonl",
+      "compact_transcript": "/1/transcript.jsonl",
+      "content_hash": "/1/content_hash.txt",
+      "prompt": "/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 39,
-    "cache_creation_tokens": 25084,
-    "cache_read_tokens": 210636,
-    "output_tokens": 2889,
-    "api_call_count": 13
+    "input_tokens": 210,
+    "cache_creation_tokens": 915972,
+    "cache_read_tokens": 8001549,
+    "output_tokens": 31387,
+    "api_call_count": 71
   }
 }

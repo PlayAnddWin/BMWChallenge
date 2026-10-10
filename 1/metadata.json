@@ -1,0 +1,72 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4M0XEA7KMXGSF69DCY55CJK",
+  "session_id": "ses_ed8f74707ffeW0lnVMc2FpaExn",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-10T23:03:50.325320206Z",
+  "branch": "fix/role1-local-data-pipeline",
+  "checkpoints_count": 6,
+  "save_step_count": 1,
+  "files_touched": [
+    "CONFIGURATION.md",
+    "compose.data.yaml",
+    "config.py",
+    "pipeline/00_preprocess.py",
+    "pipeline/01_load_neo4j.py",
+    "pipeline/02_build_kg.py",
+    "pipeline/03_vfc_analysis.py",
+    "pipeline/README_DATA.md",
+    "pipeline/requirements-data.txt",
+    "services/evidence.py",
+    "services/ingestion.py",
+    "tests/data/test_configuration.py",
+    "tests/data/test_evidence.py",
+    "tests/data/test_ingestion.py",
+    "tests/data/test_live_neo4j.py",
+    "tests/data/test_loader.py"
+  ],
+  "agent": "OpenCode",
+  "model": "gpt-6.1-sol",
+  "turn_id": "cf9fdcd6cd7a",
+  "checkpoint_transcript_start": 187,
+  "transcript_lines_at_start": 187,
+  "compact_transcript_start": 187,
+  "token_usage": {
+    "input_tokens": 171,
+    "cache_creation_tokens": 890888,
+    "cache_read_tokens": 7790913,
+    "output_tokens": 28498,
+    "api_call_count": 58
+  },
+  "session_metrics": {
+    "turn_count": 16
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-10-10T23:03:49.933817401Z",
+    "agent_lines": 3781,
+    "agent_removed": 24,
+    "human_added": 15,
+    "human_modified": 3,
+    "human_removed": 0,
+    "total_committed": 3799,
+    "total_lines_changed": 3823,
+    "agent_percentage": 99.52916557677217,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 758,
+      "agent_lines_removed": 89
+    }
+  ]
+}
