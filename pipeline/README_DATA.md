@@ -1,50 +1,93 @@
 # Role 01: data conversion and evidence provenance
 
-This layer converts explicitly supplied Excel/PDF inputs into immutable, hash-versioned records, loads those records into Neo4j, and exposes bounded evidence queries. The converter never edits or deletes input files. It does not infer source-channel meaning, customer prevalence, survey sample size, a BEV share, or a study-to-topic relationship.
+This layer converts Excel/PDF inputs into immutable, hash-versioned records, loads those records into Neo4j, and exposes bounded evidence queries. The converter never edits or deletes input files. It does not infer source-channel meaning, customer prevalence, survey sample size, a BEV share, or a study-to-topic relationship.
 
 ## Install and run
 
-Install the data-layer dependencies:
+Run these commands from the repository root. On Linux/macOS, create or activate
+the project's Python environment and install the data-layer dependencies:
 
-```powershell
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
 python -m pip install -r pipeline/requirements-data.txt
 ```
 
-Choose the raw and processed directories explicitly. The processed destination must be outside the raw directory.
+On Windows, activate with `.venv\Scripts\Activate.ps1`. Python 3.14.7 was used
+for the local verification below. The dependency file includes `pypdf[crypto]`
+for the AES-encrypted BMW PDFs and `fonttools` for their embedded fonts.
 
-```powershell
-python pipeline/00_preprocess.py --raw-data-dir "<your raw source directory>" --output-dir "<your processed output directory>"
+Create a private root `.env` from [`.env.example`](../.env.example) if one does
+not already exist. All four pipeline commands use root `config.py`, which loads
+this file with process-environment precedence. `BMW_RAW_DATA_DIR` defaults to
+`./BMW-Data`; `BMW_DATA_DIR` is the **processed destination**, defaulting to
+`./var/processed`. Relative environment and CLI paths resolve from the repository
+root even when a command is called from another directory. OpenAI credentials
+are not required for this data pipeline.
+
+### Start local Neo4j
+
+With `NEO4J_USER=neo4j`, a populated `NEO4J_PASSWORD`, and
+`NEO4J_URI=bolt://localhost:7687` in the root `.env`, run:
+
+```bash
+docker compose --file compose.data.yaml up -d --wait
+docker compose --file compose.data.yaml ps
 ```
 
-The converter requires at least one feedback workbook, survey workbook, sales workbook, option-catalog PDF, and corporate-report PDF. It prints the manifest status and returns a nonzero exit code for failed or incomplete conversions. Use repeated `--required-document-kind` flags to specify a different reviewed document set. Add `--check-known-feedback-counts` when validating the complete three-model export against the documented source-row and distinct-comment targets.
+The service exposes Bolt on `127.0.0.1:7687` and Neo4j Browser at
+<http://localhost:7474/browser/>. Log in using the graph credentials from `.env`.
+Imported data is stored in the named volume `bmwchallenge-data_neo4j_data` and
+survives container restarts. Stop the service with
+`docker compose --file compose.data.yaml stop`; start it again with the command
+above. A password change in `.env` must also be applied to the existing Neo4j
+user: container initialization only sets the password for a new data volume.
 
-Set `NEO4J_URI`, `NEO4J_USER`, and `NEO4J_PASSWORD`, then load a successful bundle:
+The Compose file caps the container at 3 GiB, with a 1536 MiB maximum heap,
+256 MiB page cache, and 1 GiB transaction-memory budget. This was verified on
+the complete corpus. A 512 MiB heap hit Neo4j's 358.4 MiB transaction limit and
+rolled back the atomic import. Keep the larger budget when incorporating this
+service into Role 3's application Compose configuration.
 
-```powershell
-python pipeline/01_load_neo4j.py --processed-dir "<your processed output directory>"
-```
+### Convert, import and build summaries
 
-To add reviewed survey relations later, provide a populated copy of `pipeline/study_topic_mappings.example.json`:
+Put the nine supplied files, including `BMW-Group-Report-2025-en.pdf`, in the
+configured raw directory. Then run:
 
-```powershell
-python pipeline/01_load_neo4j.py --processed-dir "<your processed output directory>" --study-mappings "<reviewed mapping file>"
-```
-
-For an intentionally partial import, inspect `manifest.json` and then pass `--allow-partial`. The import is idempotent by source hash and stable record ID. All source, comment, annotation, fact, chunk, import-run, and injected audit-sink writes occur in the same Neo4j write transaction.
-
-After import, run the distinct-count summary and descriptive relationship builder:
-
-```powershell
+```bash
+python pipeline/00_preprocess.py --check-known-feedback-counts
+python pipeline/01_load_neo4j.py
 python pipeline/03_vfc_analysis.py
 python pipeline/02_build_kg.py
 ```
 
-The scripts require a reachable Neo4j instance. They do not start Neo4j or fabricate empty success when the database is unavailable.
+The processed destination must be outside the raw directory. Paths can also be
+overridden explicitly:
+
+```bash
+python pipeline/00_preprocess.py --raw-data-dir "<raw directory>" --output-dir "<processed directory>"
+python pipeline/01_load_neo4j.py --processed-dir "<processed directory>"
+```
+
+The converter requires at least one feedback workbook, survey workbook, sales workbook, option-catalog PDF, and corporate-report PDF. It prints the manifest status and returns a nonzero exit code for failed or incomplete conversions. Use repeated `--required-document-kind` flags to specify a different reviewed document set. `--check-known-feedback-counts` validates the complete three-model export against the documented source-row and distinct-comment targets.
+
+To add reviewed survey relations later, provide a populated copy of `pipeline/study_topic_mappings.example.json`:
+
+```bash
+python pipeline/01_load_neo4j.py --study-mappings "<reviewed mapping file>"
+```
+
+For an intentionally partial import, inspect `manifest.json` and then pass `--allow-partial`. The import is idempotent by source hash and stable record ID. All source, comment, annotation, fact, chunk, import-run, and injected audit-sink writes occur in the same Neo4j write transaction.
+
+The graph scripts require a reachable Neo4j instance and report connection/query
+failures with a nonzero exit code. Summary writes are batched and resolve exact
+comment IDs through uniqueness indexes rather than rescanning the annotation
+graph for every group.
 
 ## Input recognition and intermediate format
 
 - `.xlsx` and `.xlsm` are supported through `openpyxl`; `.pdf` is supported through `pypdf`. Excel's transient `~$` lock files are excluded from source discovery.
-- Feedback workbook names should include `feedback`, `explorer`, or `hackathon`. The parser finds a sheet/header containing both an original feedback ID and text. It resolves fields by header names and preserves every nonempty source row plus its sheet/row locator.
+- Feedback workbook names should include `feedback`, `explorer`, or `hackathon`. The parser finds a sheet/header containing both an original feedback ID and text. It resolves fields by header names, including BMW's `Derivate (e-code)`, and preserves every nonempty source row plus its sheet/row locator. An explicit derivative wins over filename inference and is retained in `model_original`.
 - Survey workbook names should include `study`, `studies`, `survey`, or `customer`. All numeric cells are preserved as native facts with per-column model/market scope. Explicit `1..7` categories and seven-row percentage blocks are also represented as native distributions with exact cell locators; the sample base is not treated as respondent N, and topic mappings remain unreviewed until explicitly approved.
 - Sales workbook names should include `sales`, `volume`, or `forecast`. A sales fact is emitted only when vehicle line, region, year, and source value are identifiable. Zero is retained; missing values are not converted to zero. `G60_G68` remains one sales line and no powertrain split is synthesized.
 - Every PDF page is recorded, including empty/unextractable pages. Text chunks stay within their physical page, preserve exact extracted text spans, and cite 1-based physical pages. Printed page labels remain null unless later supplied from a reviewed source. Required document subtypes default to option catalogs and corporate reports so a catalog-only input set is reported as partial.
@@ -70,7 +113,8 @@ an inspectable bundle and manifest, run `00_preprocess.py` with explicit raw
 and output directories as shown above.
 
 To test a separately staged corpus without copying or changing the protected
-source folder, set `BMW_DATA_DIR` to its path. The corpus must include the BMW
+source folder, set `BMW_RAW_DATA_DIR` to its path. `BMW_DATA_DIR` continues to mean
+processed output. The corpus must include the BMW
 Group Report PDF in addition to the feedback, study, sales, and option-catalog
 files; the report is discovered by a filename containing `report`, `annual`,
 or `strategy` and is stored as `corporate_report` evidence.
@@ -81,16 +125,26 @@ or `strategy` and is stored as `corporate_report` evidence.
 `BMW_NEO4J_TEST_URI` points to a **loopback** Neo4j instance. It imports the
 complete real corpus twice, checks that counts do not grow on reimport, and
 resolves both an exact feedback source row and a corporate-report page citation.
-The test is additive; it does not clear or delete graph data. Use a disposable
-test instance because it writes the imported evidence into its default database.
+The checks are additive; they do not clear or delete graph data. Use a disposable
+test instance because they write the imported evidence into its default database.
+The other live checks verify exact sales/study cell citations, native seven-category
+shares, summary membership/idempotence, and rollback of new evidence, taxonomy
+and audit writes when the injected audit sink fails.
 
-For an auth-disabled test instance, also set
-`BMW_NEO4J_TEST_AUTH_DISABLED=1`. Otherwise provide dedicated
-`BMW_NEO4J_TEST_USER` and `BMW_NEO4J_TEST_PASSWORD` values. Do not disable auth
-on a shared or network-accessible Neo4j server. Run the full data checks with:
+The local Compose service uses authentication. Tests default to the canonical
+`NEO4J_USER` and `NEO4J_PASSWORD` from root configuration; dedicated test servers
+can override these with `BMW_NEO4J_TEST_USER` and `BMW_NEO4J_TEST_PASSWORD`.
+For an already auth-disabled loopback test instance, set
+`BMW_NEO4J_TEST_AUTH_DISABLED=1`. Run the complete checks, including all four live
+Neo4j tests, on Linux/macOS with:
+
+```bash
+BMW_NEO4J_TEST_URI=bolt://127.0.0.1:7687 python -m unittest discover -s tests/data -v
+```
+
+Or in PowerShell:
 
 ```powershell
-$env:BMW_DATA_DIR = "<staged corpus directory>"
 $env:BMW_NEO4J_TEST_URI = "bolt://127.0.0.1:7687"
 python -m unittest discover -s tests/data -v
 ```
@@ -98,6 +152,8 @@ python -m unittest discover -s tests/data -v
 The Neo4j driver must be installed from `pipeline/requirements-data.txt` in the
 Python environment running this command. Neo4j itself must already be running;
 the test never starts or configures a system service.
+
+The full checks perform several real PDF conversions and take several minutes.
 
 ## Neo4j entities and evidence queries
 
@@ -109,6 +165,10 @@ the test never starts or configures a system service.
 - `StudyTopicMapping` is created only from a supplied, reviewed mapping file. Start from `pipeline/study_topic_mappings.example.json`, add exact `fact_ids`, relation (`direct`, `broad`, `contradictory`, or `unmapped`), reason, reviewer, and review time, then load with `--study-mappings <file>`. Mappings to a fact from another converted bundle are rejected.
 
 `services.evidence` exports `EvidenceScope`, typed DTOs, and the `search_feedback`, `get_source_record`, `get_survey_facts`, `get_sales_facts`, `search_document_chunks`, and `get_comment_cohort_counts` providers. Construct `Neo4jEvidenceProvider(driver)` or configure the application-scoped provider. Search results include stable IDs, source hash/version, original text/value, exact row/cell/page locator, applicable scope, and unknowns. Provider/database failures raise `EvidenceProviderError`; they are not returned as empty evidence.
+
+Fact `source_locator` values include the original column/cell metadata, not just
+the parent row locator. Reviewed study mapping relations are exposed through
+`mapping_strength`; an unmapped study stays explicitly unmapped.
 
 Example service usage from the backend (the backend owns driver lifecycle):
 
@@ -128,8 +188,41 @@ Until the second call has a reviewed mapping, it returns an explicit `unmapped` 
 
 Counts distinguish unique canonical comments from annotations. Topic and issue counts are separate; broad bucket counts must not be reused as narrow issue support. Source A–D values stay opaque. `pipeline/02_build_kg.py` stores source-rate differences as descriptive records and same-VFC3 mixed polarity as a review candidate. It deliberately creates no formal preference-conflict edge: that requires a reviewed preference metric, not just a source-rate gap or opposing broad feedback labels.
 
-## Acceptance targets and current limits
+## Verified local acceptance and current limits
 
-For the complete export, the documented feedback targets are F70 4,076 source rows/2,128 distinct IDs; G60 5,005/4,000; G70 4,690/4,000. Run the optional count check against the supplied sources before treating those counts as reproduced. The source workbooks and PDFs are not bundled in this code branch, so no actual count, source citation, parser output, or live Neo4j import has been claimed here.
+Local verification on 2026-10-11 used Python 3.14.7, Neo4j Community 5.26.31,
+Neo4j driver 6.4.0, pypdf 6.20.0 and conversion version **1.2.1**. The full command
+above passed **25 tests with no skips**, including four live Neo4j tests.
 
-The generic workbook adapters intentionally preserve uncertain layouts instead of claiming they have fully decoded every BMW workbook. In particular, native survey cells that lack recognizable seven-category headers remain raw cell facts; sales cells lacking an explicit line/region/year remain source rows. Such data must be inspected and mapped before it can support a specific requirement. Full corpus conversion and a Neo4j import/query review remain necessary when the private source files and database are available.
+| Model | Original feedback rows | Distinct canonical comments | Imported annotations |
+| --- | ---: | ---: | ---: |
+| F70 | 4,076 | 2,128 | 4,076 |
+| G60 | 5,005 | 4,000 | 4,805 |
+| G70 | 4,690 | 4,000 | 4,490 |
+| **Total** | **13,771** | **10,128** | **13,371** |
+
+Rows without labels remain source rows; annotations are not invented to make
+their count equal the row count. The successful complete bundle has **9 source
+files, 15,304 source records, 2,075 facts and 605 document chunks**. The facts
+include 36 sales facts and 2,039 native study facts. Summary generation produced
+1,430 topic/cohort summaries, 3,439 issue/cohort summaries and 577 descriptive
+source-rate differences, with no formal preference-conflict edges.
+
+Manual checks compared feedback, sales and study cells, all seven cells of a
+native US distribution, a corporate-report passage and an option-catalog
+passage directly with the original workbooks/PDFs. All nine raw-file SHA-256
+values matched their conversion records. Reimport preserved every node and
+relationship count, injected audit failure rolled back all new evidence, and
+the imported corpus survived a Neo4j container restart. Private citation details
+are available locally in `var/cache/role1-local-verification.json`; source files
+and derived evidence remain ignored by Git.
+
+The generic workbook adapters preserve uncertain layouts. Native survey cells
+that lack recognizable seven-category headers remain raw cell facts; sales cells
+lacking an explicit line/region/year remain source rows. Reviewed study-topic
+mappings have not been populated for this local import, so topic requests return
+an explicit `unmapped` state. The source has no China free-text cohort; that is
+a coverage gap. G60/G68 sales remain one whole-line proxy with no inferred
+derivative or powertrain split, and document market/derivative applicability
+remains unknown until reviewed. These provider states are part of the handoff
+to Roles 3 and 2.

@@ -381,17 +381,19 @@ class Neo4jEvidenceProvider:
                 fact[target] = _decode_json(fact.pop(name), None)
         record = row.get("source_record")
         source_file = row.get("source_file")
+        source_locator = dict(fact.get("locator") or {})
         if record:
             record = dict(record)
-            fact["source_locator"] = _decode_json(record.get("locator_json"), {})
+            source_locator = {**_decode_json(record.get("locator_json"), {}), **source_locator}
             fact["source_record_id"] = record.get("id")
+        fact["source_locator"] = source_locator
         if source_file:
             source_file = dict(source_file)
             fact["source_file_id"] = source_file.get("id")
             fact["source_sha256"] = source_file.get("sha256")
         mapping = row.get("mapping")
         fact["topic_mapping"] = dict(mapping) if mapping else None
-        fact.setdefault("mapping_strength", "unmapped")
+        fact["mapping_strength"] = mapping.get("relation", "unmapped") if mapping else "unmapped"
         fact.setdefault("respondent_n", None)
         unknowns = []
         for field_name in ("respondent_n", "scale", "unit", "region", "derivative"):

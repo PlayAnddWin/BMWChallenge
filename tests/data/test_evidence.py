@@ -79,6 +79,53 @@ class EvidenceProviderTests(unittest.TestCase):
         with self.assertRaisesRegex(EvidenceProviderError, "database unavailable"):
             provider.get_source_record("SR-1")
 
+    def test_sales_fact_citation_keeps_exact_column_and_zero_volume(self) -> None:
+        provider = Neo4jEvidenceProvider(_Driver(_Transaction([{
+            "fact": {
+                "id": "FACT-SALES", "kind": "sales", "vehicle_line": "G70",
+                "region": "US", "year": 2030, "volume": 0,
+                "locator_json": '{"sheet":"G70","row":3,"column":5,"column_header":"volume_2030"}',
+            },
+            "source_record": {
+                "id": "SR-SALES",
+                "locator_json": '{"filename":"sales.xlsx","sheet":"G70","row":3}',
+            },
+            "source_file": {"id": "SRC-SALES", "sha256": "synthetic-hash"},
+            "mapping": None,
+        }])))
+
+        fact = provider.get_sales_facts(EvidenceScope(model="G70", region="US"))["facts"][0]
+
+        self.assertEqual(fact["volume"], 0)
+        self.assertEqual(fact["source_locator"], {
+            "filename": "sales.xlsx", "sheet": "G70", "row": 3,
+            "column": 5, "column_header": "volume_2030",
+        })
+
+    def test_reviewed_survey_fact_keeps_cell_and_mapping_relation(self) -> None:
+        provider = Neo4jEvidenceProvider(_Driver(_Transaction([{
+            "fact": {
+                "id": "FACT-SURVEY", "kind": "survey_cell", "derivative": "G68",
+                "region": "CN", "value": 8.1, "mapping_strength": "unmapped",
+                "locator_json": '{"sheet":"CN_EU_2025","row":4,"column":2}',
+            },
+            "source_record": {
+                "id": "SR-SURVEY",
+                "locator_json": '{"filename":"study.xlsx","sheet":"CN_EU_2025","row":4}',
+            },
+            "source_file": {"id": "SRC-SURVEY", "sha256": "synthetic-hash"},
+            "mapping": {"relation": "direct", "review_state": "reviewed"},
+        }])))
+
+        result = provider.get_survey_facts("synthetic topic", EvidenceScope(model="G68", region="CN"))
+        fact = result["facts"][0]
+
+        self.assertEqual(result["mapping_status"], "reviewed")
+        self.assertEqual(fact["source_locator"]["column"], 2)
+        self.assertEqual(fact["source_locator"]["filename"], "study.xlsx")
+        self.assertEqual(fact["mapping_strength"], "direct")
+        self.assertIsNone(fact["respondent_n"])
+
 
 if __name__ == "__main__":
     unittest.main()

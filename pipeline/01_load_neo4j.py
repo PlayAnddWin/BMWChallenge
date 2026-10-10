@@ -5,12 +5,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 from pathlib import Path
 import sys
 from typing import Any, Callable, Mapping, Sequence
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from config import get_settings, resolve_path  # noqa: E402
 
 
 class BundleError(RuntimeError):
@@ -62,8 +63,12 @@ CONSTRAINTS = (
     "CREATE CONSTRAINT fact_id_unique IF NOT EXISTS FOR (n:Fact) REQUIRE n.id IS UNIQUE",
     "CREATE CONSTRAINT document_chunk_id_unique IF NOT EXISTS FOR (n:DocumentChunk) REQUIRE n.id IS UNIQUE",
     "CREATE CONSTRAINT import_run_id_unique IF NOT EXISTS FOR (n:ImportRun) REQUIRE n.id IS UNIQUE",
+    "CREATE CONSTRAINT vfc2_name_unique IF NOT EXISTS FOR (n:VFCTag) REQUIRE n.vfc2 IS UNIQUE",
     "CREATE CONSTRAINT vfc3_id_unique IF NOT EXISTS FOR (n:VFCTag3) REQUIRE n.id IS UNIQUE",
     "CREATE CONSTRAINT study_topic_mapping_id_unique IF NOT EXISTS FOR (n:StudyTopicMapping) REQUIRE n.id IS UNIQUE",
+    "CREATE CONSTRAINT vfc_analysis_id_unique IF NOT EXISTS FOR (n:VFCAnalysis) REQUIRE n.id IS UNIQUE",
+    "CREATE CONSTRAINT source_rate_difference_id_unique IF NOT EXISTS FOR (n:SourceRateDifference) REQUIRE n.id IS UNIQUE",
+    "CREATE CONSTRAINT opinion_mix_id_unique IF NOT EXISTS FOR (n:OpinionMix) REQUIRE n.id IS UNIQUE",
 )
 
 INDEXES = (
@@ -337,8 +342,8 @@ def load_processed_bundle(driver: Any, processed_dir: Path,
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--processed-dir", required=True, type=Path,
-                        help="Converted bundle directory containing manifest.json and JSONL tables.")
+    parser.add_argument("--processed-dir", type=Path,
+                        help="Converted bundle directory; defaults to BMW_DATA_DIR from root configuration.")
     parser.add_argument("--allow-partial", action="store_true",
                         help="Explicitly import a partial bundle after reviewing its manifest.")
     parser.add_argument("--study-mappings", type=Path,
@@ -348,14 +353,19 @@ def _parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
-    uri, user, password = (os.getenv("NEO4J_URI"), os.getenv("NEO4J_USER"), os.getenv("NEO4J_PASSWORD"))
+    try:
+        settings = get_settings()
+    except ValueError as exc:
+        print(f"Invalid runtime configuration: {exc}", file=sys.stderr)
+        return 2
+    uri, user, password = settings.neo4j_uri, settings.neo4j_user, settings.neo4j_password.get_secret_value()
     if not all((uri, user, password)):
         print("Set NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD before loading.", file=sys.stderr)
         return 2
     mappings = []
     if args.study_mappings:
         try:
-            raw_mappings = json.loads(args.study_mappings.read_text(encoding="utf-8"))
+            raw_mappings = json.loads(resolve_path(args.study_mappings).read_text(encoding="utf-8"))
             if not isinstance(raw_mappings, dict) or not isinstance(raw_mappings.get("mappings"), list):
                 raise BundleError("Study mapping file must be an object with a mappings array")
             mapping_version = raw_mappings.get("mapping_version")
@@ -375,7 +385,8 @@ def main(argv: list[str] | None = None) -> int:
     driver = GraphDatabase.driver(uri, auth=(user, password))
     try:
         driver.verify_connectivity()
-        result = load_processed_bundle(driver, args.processed_dir, allow_partial=args.allow_partial,
+        processed_dir = resolve_path(args.processed_dir) if args.processed_dir is not None else settings.data_dir
+        result = load_processed_bundle(driver, processed_dir, allow_partial=args.allow_partial,
                                        study_mappings=mappings)
     except Exception as exc:
         print(f"Evidence import failed: {type(exc).__name__}: {exc}", file=sys.stderr)

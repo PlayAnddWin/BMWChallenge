@@ -10,9 +10,14 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 from collections import defaultdict
+from pathlib import Path
+import sys
 from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from config import get_settings  # noqa: E402
 
 
 def _stable_id(prefix: str, *parts: Any) -> str:
@@ -142,7 +147,12 @@ def build_evidence_relationships(session: Any) -> dict[str, int]:
 
 
 def main() -> int:
-    uri, user, password = os.getenv("NEO4J_URI"), os.getenv("NEO4J_USER"), os.getenv("NEO4J_PASSWORD")
+    try:
+        settings = get_settings()
+    except ValueError as exc:
+        print(f"Invalid runtime configuration: {exc}", file=sys.stderr)
+        return 2
+    uri, user, password = settings.neo4j_uri, settings.neo4j_user, settings.neo4j_password.get_secret_value()
     if not all((uri, user, password)):
         print("Set NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD before running.")
         return 2
@@ -153,8 +163,12 @@ def main() -> int:
         return 2
     driver = GraphDatabase.driver(uri, auth=(user, password))
     try:
+        driver.verify_connectivity()
         with driver.session() as session:
             summary = build_evidence_relationships(session)
+    except Exception as exc:
+        print(f"Evidence relationship build failed: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 1
     finally:
         driver.close()
     print(json.dumps(summary, indent=2, sort_keys=True))

@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 import runpy
 import tempfile
 import unittest
 
+from config import get_settings
 from services.ingestion import convert_sources, write_bundle
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-REAL_DATA_DIR = Path(os.environ.get("BMW_DATA_DIR", REPO_ROOT / "BMW-Data")).resolve()
+REAL_DATA_DIR = get_settings().raw_data_dir
 _loader = runpy.run_path(str(REPO_ROOT / "pipeline" / "01_load_neo4j.py"))
 load_processed_bundle = _loader["load_processed_bundle"]
 BundleError = _loader["BundleError"]

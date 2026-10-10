@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 
-CONVERSION_VERSION = "1.2.0"
+CONVERSION_VERSION = "1.2.1"
 SUPPORTED_EXCEL = {".xlsx", ".xlsm"}
 SUPPORTED_PDF = {".pdf"}
 DEFAULT_REQUIRED_KINDS = ("feedback", "survey", "sales", "document")
@@ -80,7 +80,7 @@ HEADER_ALIASES: dict[str, tuple[str, ...]] = {
     "text": ("text", "feedback", "feedbacktext", "comment", "commenttext", "customerfeedback",
              "customerfeedbacktext", "reviewtext", "originaltext", "verbatim"),
     "feedback_type": ("feedbacktype", "type", "annotationtype", "sentimenttype"),
-    "model": ("model", "vehiclemodel", "derivative", "series", "vehicleline"),
+    "model": ("model", "vehiclemodel", "derivative", "derivateecode", "series", "vehicleline"),
     "country": ("country", "countrycode", "market", "marketcountry"),
     "region": ("region", "commercialregion", "salesregion"),
     "powertrain": ("powertrain", "enginetype", "engine", "drive", "drivetrain"),

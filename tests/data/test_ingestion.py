@@ -1,18 +1,19 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 import tempfile
 import unittest
 
 from openpyxl import Workbook
 
+from config import get_settings
 from services.ingestion import (
     CONVERSION_VERSION,
     EXPECTED_FEEDBACK_COUNTS,
     _year,
     convert_feedback_workbook,
+    convert_pdf,
     convert_sources,
     convert_workbook,
     discover_sources,
@@ -20,7 +21,7 @@ from services.ingestion import (
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-REAL_DATA_DIR = Path(os.environ.get("BMW_DATA_DIR", REPO_ROOT / "BMW-Data")).resolve()
+REAL_DATA_DIR = get_settings().raw_data_dir
 
 
 def _save_workbook(path: Path, sheet_name: str, rows: list[tuple[object, ...]]) -> None:
@@ -50,6 +51,7 @@ class IngestionTests(unittest.TestCase):
         self.assertEqual(bundle.manifest["source_rows"], 2)
         self.assertEqual(bundle.manifest["canonical_comments"], 1)
         self.assertEqual(len(bundle.feedback_annotations), 2)
+        self.assertEqual(bundle.feedback_comments[0]["model_original"], "G70")
         self.assertEqual(bundle.feedback_comments[0]["powertrain_original"], "BEVE")
         self.assertEqual(bundle.feedback_comments[0]["powertrain"], "BEV")
         self.assertEqual(
@@ -76,6 +78,20 @@ class IngestionTests(unittest.TestCase):
         self.assertEqual(bundle.manifest["canonical_comments"], 2)
         self.assertEqual(bundle.manifest["duplicate_id_conflicts"], 1)
         self.assertIn("duplicate_feedback_id_conflict", {issue["code"] for issue in bundle.issues})
+
+    def test_explicit_bmw_derivative_column_wins_over_filename(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT) as temp_dir:
+            path = Path(temp_dir) / "G60_feedback_hackathon.xlsx"
+            _save_workbook(path, "Feedback_Explorer", [
+                ("ID", "Derivate (e-code)", "Country", "Customer Feedback"),
+                ("FB-G68", "G68", "CN", "Synthetic explicitly scoped feedback."),
+            ])
+
+            bundle = convert_feedback_workbook(path)
+
+        self.assertEqual(bundle.feedback_comments[0]["model"], "G68")
+        self.assertEqual(bundle.feedback_comments[0]["model_original"], "G68")
+        self.assertEqual(bundle.feedback_comments[0]["region"], "CN")
 
     def test_sales_matrix_recognizes_underscored_year_headers_and_zero_values(self) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT) as temp_dir:
@@ -124,6 +140,38 @@ class IngestionTests(unittest.TestCase):
             found = discover_sources(root)
 
         self.assertEqual([path.name for path in found], ["G70_feedback_hackathon.xlsx"])
+
+    def test_aes_encrypted_pdf_preserves_exact_page_text(self) -> None:
+        from pypdf import PdfWriter
+        from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
+
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT) as temp_dir:
+            path = Path(temp_dir) / "synthetic_report.pdf"
+            writer = PdfWriter()
+            page = writer.add_blank_page(width=612, height=792)
+            page[NameObject("/Resources")] = DictionaryObject({
+                NameObject("/Font"): DictionaryObject({
+                    NameObject("/F1"): DictionaryObject({
+                        NameObject("/Type"): NameObject("/Font"),
+                        NameObject("/Subtype"): NameObject("/Type1"),
+                        NameObject("/BaseFont"): NameObject("/Helvetica"),
+                    }),
+                }),
+            })
+            stream = DecodedStreamObject()
+            stream.set_data(b"BT /F1 12 Tf 20 40 Td (Synthetic encrypted report passage.) Tj ET")
+            page[NameObject("/Contents")] = writer._add_object(stream)
+            writer.encrypt("", owner_password="synthetic-owner", algorithm="AES-256")
+            writer.write(path)
+
+            bundle = convert_pdf(path)
+
+        self.assertEqual(bundle.issues, [])
+        self.assertEqual(bundle.source_records[0]["locator"]["page"], 1)
+        self.assertEqual(bundle.document_chunks[0]["original_text"], "Synthetic encrypted report passage.")
+        chunk = bundle.document_chunks[0]
+        page_text = bundle.source_records[0]["raw_payload"]["text"]
+        self.assertEqual(page_text[chunk["start_offset"]:chunk["end_offset"]], chunk["original_text"])
 
     def test_real_bmw_data_matches_feedback_counts_and_page_citations(self) -> None:
         if not REAL_DATA_DIR.is_dir():
