@@ -1,0 +1,17 @@
+{
+  "tool_use_id": "01a12741-5de9-7e21-a4de-48db84c7805a",
+  "agent_id": "01a12741-5de9-7e21-a4de-48db84c7805a",
+  "subagent_type": "default",
+  "files": [
+    "services/decisions.py"
+  ],
+  "token_usage": {
+    "input_tokens": 36441,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 908123,
+    "output_tokens": 6722,
+    "api_call_count": 23
+  },
+  "started_at": "2026-10-10T21:19:20.769405+02:00",
+  "completed_at": "2026-10-10T21:29:35.611157+02:00"
+}

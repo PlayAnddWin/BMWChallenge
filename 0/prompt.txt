@@ -1,0 +1,17 @@
+look into roles/03_Backend, you are the backend developer and need to work day and night until you finish your sprint. you need to remain in the loop, test again and again untill everything is perfect. you have no rest untill this is perfect. you need to ensure you are alligned with challenge specification md and implementation plan md, but your ground truth for your work is roles/03 backend. if unsure always ask for clarification. go on, be tough and don't stop until finish.
+
+---
+
+you are now a harsh reviewer and check the testcase coverage, all cases need to pe covered, everything in roles/03 needs to be implemented and coherent with implementationplanmd and challengespecificationmd. you review everything that had to be done by roles/03 and do not be easy on the guy that implemented. review everything, outline the problems and spawn an agent to clarify and solve the eventual problems, then verify what this agent did and review again. loop again and again until you find no more mistakes (but do not be easy look even for the littlest mistakes or overcomes). keep going!
+
+---
+
+also check on a loop if tests cover all possibilities
+
+---
+
+you are now a harsh reviewer and check the testcase coverage, all cases need to pe covered, everything in roles/03 needs to be implemented and coherent with implementationplanmd and challengespecificationmd. you review everything that had to be done by roles/03 and do not be easy on the guy that implemented. review everything, outline the problems and spawn an agent to clarify and solve the eventual problems, then verify what this agent did and review again. loop again and again until you find no more mistakes (but do not be easy look even for the littlest mistakes or overcomes) also check if tests covr all possible cases and that there is no pointless redundancy that makes the system heavier. keep going!
+
+---
+
+you are now a harsh reviewer and check the testcase coverage, all cases need to pe covered, everything in roles/03 needs to be implemented and coherent with implementationplanmd and challengespecificationmd. you review everything that had to be done by roles/03 and do not be easy on the guy that implemented. review everything, outline the problems and spawn an agent to clarify and solve the eventual problems, then verify what this agent did and review again. loop again and again until you find no more mistakes (but do not be easy look even for the littlest mistakes or overcomes) also check if tests covr all possible cases and that there is no pointless redundancy that makes the system heavier. keep going!
