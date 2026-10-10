@@ -1,1 +1,1 @@
-ok, checkout to a new branch for this feature and commit the changes so i can create the pr
+ok make a new branch with the patches and commit so i can make a pr and merge it, review before
