@@ -1,0 +1,3 @@
+[tool.pytest.ini_options]
+testpaths = ["tests/intelligence"]
+markers = ["live: requires explicit opt-in and OpenAI credentials; uses synthetic or real evidence"]

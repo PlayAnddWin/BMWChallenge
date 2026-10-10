@@ -1,0 +1,222 @@
+"""OpenAI adapter with bounded retries and a fake-friendly provider protocol."""
+from copy import deepcopy
+from typing import Any, Protocol
+
+from pydantic import Field
+
+from config import Settings
+from contracts.intelligence import DTO
+from services.common import EngineError, canonical
+
+
+class ModelUnavailable(EngineError):
+    pass
+
+
+class ToolCall(DTO):
+    id: str
+    name: str
+    arguments: dict[str, Any]
+
+
+class ModelReply(DTO):
+    content: dict[str, Any] | None = None
+    tool_calls: list[ToolCall] = Field(default_factory=list)
+    provider_metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ModelAdapter(Protocol):
+    model: str
+    def complete(self, messages: list[dict], schema: dict,
+                 tools: list[dict] | None = None) -> ModelReply: ...
+
+
+def openai_strict_schema(schema: dict) -> dict | None:
+    """Convert closed DTOs to OpenAI's required-field subset; dynamic patch values use JSON mode."""
+    result = deepcopy(schema)
+    supported = True
+
+    def walk(node: dict) -> None:
+        nonlocal supported
+        node.pop("default", None)
+        if "const" in node:
+            node["enum"] = [node.pop("const")]
+        if node.get("type") == "object":
+            if node.get("additionalProperties") is not False:
+                supported = False
+            node["required"] = list(node.get("properties", {}))
+            for child in node.get("properties", {}).values():
+                walk(child)
+        elif node.get("type") == "array":
+            walk(node["items"])
+        elif not any(key in node for key in ("type", "$ref", "anyOf", "allOf", "enum")):
+            supported = False
+        for child in node.get("$defs", {}).values():
+            walk(child)
+        for key in ("anyOf", "allOf"):
+            for child in node.get(key, []):
+                walk(child)
+
+    walk(result)
+    return result if supported else None
+
+
+def keyed_output_schema(schema: dict, array_field: str, item_definition: str,
+                        identifier_field: str, identifiers: list[str]) -> dict:
+    """Constrain provider output to the requested ID vocabulary and bounded batch size."""
+    result = deepcopy(schema)
+    result["properties"][array_field]["maxItems"] = len(identifiers)
+    result["$defs"][item_definition]["properties"][identifier_field]["enum"] = sorted(identifiers)
+    return result
+
+
+def request_timeout(schema: dict) -> int:
+    """Rich multi-item JSON takes longer; keep both single and batch requests bounded."""
+    properties = schema.get("properties", {})
+    count = max((properties.get(name, {}).get("maxItems", 1) for name in ("results", "requirements")), default=1)
+    return 90 if count > 1 else 45
+
+
+class OpenAIAdapter:
+    policy_version = "openai-adapter-v6"
+    max_draft_batch_size = 1  # Prevent cross-signal evidence contamination in rich requirement drafts.
+    def __init__(self, settings: Settings, client: Any = None):
+        self.model = settings.openai_model
+        self._key = settings.openai_api_key
+        self._client = client
+        self._tool_round_outputs: dict[str, list[dict]] = {}
+
+    def _responses_input(self, messages: list[dict]) -> list[dict]:
+        converted = []
+        for message in messages:
+            if message.get("tool_calls"):
+                calls = message["tool_calls"]
+                continuation = self._tool_round_outputs.get(calls[0]["id"])
+                if continuation is not None:
+                    converted.extend(deepcopy(continuation))
+                else:
+                    converted.extend({"type": "function_call", "call_id": call["id"],
+                                      "name": call["function"]["name"], "arguments": call["function"]["arguments"]}
+                                     for call in calls)
+            elif message["role"] == "tool":
+                converted.append({"type": "function_call_output", "call_id": message["tool_call_id"],
+                                  "output": message["content"]})
+            else:
+                converted.append({"role": message["role"], "content": message.get("content") or ""})
+        return converted
+
+    def _complete_responses(self, messages: list[dict], schema: dict, tools: list[dict] | None) -> ModelReply:
+        import json
+        if not any(message["role"] == "tool" for message in messages):
+            self._tool_round_outputs.clear()
+        strict = openai_strict_schema(schema)
+        output_format = ({"type": "json_schema", "name": "role2_output", "strict": True, "schema": strict}
+                         if strict is not None else {"type": "json_object"})
+        policy = {"role": "system", "content": (
+            "Return JSON matching the provider-enforced output schema when answering." if strict is not None
+            else "Return JSON matching this schema when answering: " + canonical(schema))}
+        request = {"model": self.model, "input": self._responses_input([policy] + messages),
+                   "text": {"format": output_format}, "reasoning": {"effort": "low"},
+                   "max_output_tokens": 8192, "store": False, "include": ["reasoning.encrypted_content"],
+                   "timeout": request_timeout(schema)}
+        if tools:
+            request["tools"] = [{"type": "function", **tool["function"]} for tool in tools]
+        response = self._client.responses.create(**request)
+        if response.status == "incomplete":
+            raise EngineError("model output exceeded the bounded completion-token budget or was incomplete")
+        if response.status != "completed":
+            raise EngineError("provider did not complete the response")
+        calls = []
+        for item in response.output:
+            if item.type == "message" and any(content.type == "refusal" for content in item.content):
+                raise EngineError("model declined the requested output")
+            if item.type == "function_call":
+                try:
+                    calls.append(ToolCall(id=item.call_id, name=item.name, arguments=json.loads(item.arguments)))
+                except (ValueError, TypeError) as error:
+                    raise EngineError("model returned malformed tool arguments") from error
+        if calls:
+            # Stateless Responses requests replay encrypted reasoning only in adapter memory;
+            # it is never exposed in replies, stored reports or visible/audit conversation.
+            self._tool_round_outputs[calls[0].id] = [item.model_dump(exclude_none=True) for item in response.output]
+        try:
+            content = json.loads(response.output_text) if response.output_text else None
+            usage = response.usage.model_dump() if response.usage else None
+            return ModelReply(content=content, tool_calls=calls, provider_metadata={
+                "response_id": response.id, "model": response.model, "usage": usage,
+                "reasoning_effort": "low", "api": "responses", "store": False,
+                "request_timeout_seconds": request["timeout"],
+            })
+        except (ValueError, TypeError) as error:
+            raise EngineError("model returned malformed JSON") from error
+
+    def complete(self, messages: list[dict], schema: dict,
+                 tools: list[dict] | None = None) -> ModelReply:
+        if not self._key.get_secret_value().strip():
+            raise ModelUnavailable("OPENAI_API_KEY is missing; live generation unavailable")
+        if self._client is None:
+            from openai import OpenAI
+            self._client = OpenAI(api_key=self._key.get_secret_value(), timeout=45, max_retries=2)
+        if self.model.startswith("gpt-5") and "chat" not in self.model:
+            return self._complete_responses(messages, schema, tools)
+        strict_schema = openai_strict_schema(schema)
+        output_format = ({"type": "json_schema", "json_schema": {
+            "name": "role2_output", "strict": True, "schema": strict_schema,
+        }} if strict_schema is not None else {"type": "json_object"})
+        request = {
+            "model": self.model,
+            "messages": [{"role": "system", "content": (
+                "Return JSON matching the provider-enforced output schema when answering."
+                if strict_schema is not None else "Return JSON matching this schema when answering: " + canonical(schema)
+            )}] + messages,
+            "response_format": output_format,
+            "max_completion_tokens": 8192,
+            "timeout": request_timeout(schema),
+        }
+        # Classic chat models support zero-temperature decoding. Reasoning models retain provider defaults.
+        if self.model.startswith(("gpt-4o", "gpt-4.1", "gpt-4-turbo", "gpt-3.5")):
+            request["temperature"] = 0
+        if tools:
+            request["tools"] = tools
+        response = self._client.chat.completions.create(**request)
+        if getattr(response.choices[0], "finish_reason", None) == "length":
+            raise EngineError("model output exceeded the bounded completion-token budget")
+        message = response.choices[0].message
+        if getattr(message, "refusal", None):
+            raise EngineError("model declined the requested output")
+        import json
+        try:
+            calls = [ToolCall(id=call.id, name=call.function.name,
+                              arguments=json.loads(call.function.arguments))
+                     for call in message.tool_calls or []]
+            content = json.loads(message.content) if message.content else None
+            usage = getattr(response, "usage", None)
+            metadata = {"response_id": getattr(response, "id", None),
+                        "model": getattr(response, "model", self.model),
+                        "temperature": request.get("temperature"),
+                        "reasoning_effort": request.get("reasoning_effort"),
+                        "request_timeout_seconds": request["timeout"],
+                        "usage": usage.model_dump() if usage is not None else None}
+            return ModelReply(content=content, tool_calls=calls, provider_metadata=metadata)
+        except (ValueError, TypeError) as error:
+            raise EngineError("model returned malformed JSON") from error
+
+
+def structured_reply(model: ModelAdapter, messages: list[dict], schema: dict, *, max_attempts: int = 2) -> dict:
+    """One repair for malformed JSON/shape only; semantic evidence failures are not repaired."""
+    if not 1 <= max_attempts <= 2:
+        raise ValueError("structured attempts must be in [1,2]")
+    for attempt in range(max_attempts):
+        try:
+            reply = model.complete(messages, schema)
+            if reply.tool_calls or reply.content is None:
+                raise EngineError("expected a JSON object without tool calls")
+            return reply.content
+        except ModelUnavailable:
+            raise
+        except EngineError:
+            if attempt == max_attempts - 1:
+                raise
+            messages = messages + [{"role": "user", "content":
+                                    "Return a valid JSON object matching the supplied schema. Do not alter evidence."}]
+    raise AssertionError("unreachable")
