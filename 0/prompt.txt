@@ -1,0 +1,545 @@
+looking at the @CHALLENGE_SPECIFICATION.md and the proposed @IMPLEMENTATION_PLAN.md analyse the plan, what drawbacks or other improvements need to be made, we are a team of 5 and we need to finish this in ~10-12h we will use agents and ai a lot so we have a lot of capacity for implementing things
+Called the Read tool with the following input: {"filePath":"/home/sebi/Code/BMWChallenge/CHALLENGE_SPECIFICATION.md"}
+<path>/home/sebi/Code/BMWChallenge/CHALLENGE_SPECIFICATION.md</path>
+<type>file</type>
+<content>
+1: # BMW Product Management Challenge: Assignment Specification & Requirements Guide
+2: 
+3: **Challenge:** AI for Product Decision Making  
+4: **Host:** BMW Group Product Management  
+5: **Scope Focus:** Automotive Product Development Process — Steps 1 & 2 (Market Research & Product Planning to Gate G1 Concept Freeze)  
+6: **Target Derivatives:** BMW 1 Series (F70), BMW 5 Series (G60/G68), BMW 7 Series (G70), and Future Successor Lines (Neue Klasse Architecture)  
+7: **Target Markets:** Europe (EU), United States (US), China (CN), and Rest of World (RoW)  
+8: 
+9: ---
+10: 
+11: ## 1. Executive Summary & Mission Statement
+12: 
+13: Modern automotive product management requires synthesizing billions of fragmented market signals, customer reviews, warranty reports, competitor actions, and strategic corporate roadmaps into a coherent, customer-facing product specification. Today, this process spans approximately **two years** per vehicle generation and is predominantly manual, fragmented, and vulnerable to subjective bias.
+14: 
+15: ### The Mission
+16: Develop an AI-powered, human-in-the-loop enterprise application that:
+17: 1. **Ingests Heterogeneous Data**: Combines internal BMW customer feedback, quantitative satisfaction surveys, vehicle equipment catalogs, and strategic corporate reports.
+18: 2. **Extracts Actionable Signals**: Discovers recurring complaints, unmet customer needs, competitor advantages, and emerging market trends, each strictly linked to originating evidence.
+19: 3. **Derives SMART Product Requirements**: Formulates clear, customer-facing, realistic, and measurable requirements adhering to SMART criteria.
+20: 4. **Prioritizes with Explainable Logic**: Applies an objective, transparent, multi-factor scoring methodology that balances customer value, regional volume impact, corporate strategy, and implementation complexity.
+21: 5. **Keeps the Product Manager Firmly in the Loop**: Enables the PM to review, approve, reject, modify, or challenge requirements, rationales, and underlying evidence.
+22: 6. **Maintains a Forensic Audit Trail**: Chronologically logs every system derivation, PM intervention, score override, and decision rationale to guarantee end-to-end governance.
+23: 
+24: ---
+25: 
+26: ## 2. Automotive Product Development Process Alignment
+27: 
+28: BMW management explicitly bounded the scope of this challenge to **Steps 1 and 2** of the 13-stage Automotive Product Development Lifecycle:
+29: 
+30: ```mermaid
+31: flowchart TD
+32:     subgraph Step1["Step 1: Market Research & Needs Analysis"]
+33:         A1["Activities: Market Research, Customer Insights, Competitor Benchmarking, Trend Analysis"]
+34:         A2["Deliverables: Market Opportunity Report, Customer Needs Document, Target Segments"]
+35:         G0["Decision Gate: G0 — Project Approval"]
+36:         A1 --> A2 --> G0
+37:     end
+38: 
+39:     subgraph Step2["Step 2: Product Planning (Core App Focus)"]
+40:         B1["Activities: Define Product Vision, Positioning, SMART Feature Prioritization, Trade-off Resolution"]
+41:         B2["Deliverables: Product Plan, Project Charter, Prioritized Requirement List, Initial Business Sizing"]
+42:         G1["Decision Gate: G1 — Concept Freeze"]
+43:         B1 --> B2 --> G1
+44:     end
+45: 
+46:     subgraph Step3["Steps 3 to 13: Concept to Continuous Feedback"]
+47:         C1["G2 Feasibility -> G3 Design Freeze -> ... -> G9 SOP -> Step 13 Market Feedback Loop"]
+48:     end
+49: 
+50:     Step1 --> Step2 --> Step3
+51: 
+52:     classDef default fill:#ffffff,stroke:#000000,color:#000000,stroke-width:1px;
+53:     style Step1 fill:#ffffff,stroke:#000000,stroke-width:1.5px,color:#000000
+54:     style Step2 fill:#ffffff,stroke:#000000,stroke-width:2px,color:#000000
+55:     style Step3 fill:#ffffff,stroke:#000000,stroke-width:1.5px,color:#000000
+56: ```
+57: 
+58: ### Boundary Definitions
+59: * **In-Scope (Customer-Facing Product Attributes)**:
+60:   * Interior comfort, ergonomics, and spatial packaging
+61:   * Infotainment, operating system UX, and connected digital services
+62:   * Climatization and thermal comfort controls
+63:   * Driving experience and dynamic perception
+64:   * Real-world charging UX and range perception
+65:   * Equipment packaging, option bundling, and regional variant differentiation
+66: * **Out-of-Scope**:
+67:   * Regulatory and homologation compliance (e.g., UNECE safety, emissions type approval)
+68:   * Low-level component specifications and supplier engineering schematics
+69:   * Detailed unit economics, factory tooling capex, and bill-of-materials pricing calculations (rough implementation complexity/effort sizing is utilized as a prioritization factor)
+70: 
+71: ---
+72: 
+73: ## 3. Data Ecosystem & Inputs Profile
+74: 
+75: The application processes four distinct tiers of heterogeneous data:
+76: 
+77: ```
+78: BMW-Data/
+79: ├── F70_feedback_hackathon.xlsx              # 4,076 rows (1 Series - UK, JP, SE, FR)
+80: ├── G60_feedback_hackathon.xlsx              # 5,005 rows (5 Series - US, KR, GB, JP, SE)
+81: ├── G70_feedback_hackathon.xlsx              # 4,690 rows (7 Series - US, KR, JP, GB, CA)
+82: ├── F70_G60_G68_G70_customer_studies.xlsx    # Quantitative satisfaction studies (China, EU, US)
+83: ├── sales_volumes.xlsx                       # Market deliveries (2024, 2025, 2030 projections)
+84: ├── F70_OptionList.PDF                       # Official German equipment catalog & packaging (1er)
+85: ├── G60_OptionList.PDF                       # Official German equipment catalog & packaging (5er)
+86: ├── G70_OptionList.PDF                       # Official German equipment catalog & packaging (7er)
+87: └── BMW_Group_Report_2025.pdf / Q-Deck       # 400-page strategic corporate & financial report
+88: ```
+89: 
+90: ### Dataset Characteristics
+91: 
+92: | Dataset | Volume | Key Attributes | Strategic Value |
+93: | :--- | :--- | :--- | :--- |
+94: | **Customer Feedback** | 13,771 rows | `ID`, `Country`, `Engine Type` (ICE, BEV, PHEV), `Feedback Type` (Likes, DTU, Defect, Wants), `Customer Feedback`, `Vfc Category` | Voice of the customer; ground-truth operational friction, ergonomics, and feature desires. |
+95: | **Customer Studies** | Quantitative sheets | Likert ratings (US) & Mean satisfaction scores (CN vs. EU) across 15 vehicle systems | Macro-level customer satisfaction benchmarks; correlates qualitative text with quantitative validation. |
+96: | **Sales Volumes** | 4 regions $\times$ 3 vehicle lines | Volumes for 2024, 2025, and 2030 projections across EU, US, China, and RoW | Objective volume weighting factor for prioritization formulas. |
+97: | **Option Catalogs** | 3 German PDFs | Standard vs. optional equipment, option codes, bundle packages (Innovation, Travel, Comfort) | Grounds proposed requirements in realistic production packaging. |
+98: | **Strategic Report Deck** | ~400 pages | Neue Klasse platform roadmap, R&D priorities, BEV delivery targets, digital software KPIs | Strategic validation layer; ties customer desires to BMW engineering investments. |
+99: 
+100: ---
+101: 
+102: ## 4. Evaluation Criteria & Scoring Rubric
+103: 
+104: The challenge will be judged on five primary criteria, with one critical guiding principle:
+105: 
+106: | Dimension | Weight | Key Evaluation Requirements |
+107: | :--- | :---: | :--- |
+108: | **Decision & Scoring Logic** | 25% | Quality, consistency, and mathematical explainability of prioritization. Clear demonstration of how evidence sources are weighted and combined, and how trade-offs and conflicting signals are resolved. |
+109: | **Workflow & Human Decision-Making** | 20% | Completeness of the end-to-end workflow from raw findings to prioritized requirements. Clearly defined roles, decision gates, and boundaries between autonomous AI and mandatory human review. |
+110: | **Traceability & Auditability** | 20% | Full backward lineage from every requirement and score back to originating quotes, surveys, and report slides. Complete, chronological, tamper-evident audit history of all approvals, edits, and rejections. |
+111: | **Solution Quality, Usability & Feasibility** | 20% | Prototype UI/UX polish, usability for BMW Product Managers and engineering peers, realistic applicability in an enterprise automotive environment, and quality of SMART formulations. |
+112: | **Innovation, Scalability & Business Impact** | 15% | Originality of approach, cross-derivative scalability (F70 $\to$ G60 $\to$ G70 $\to$ Neue Klasse), reduction in manual requirement definition cycle time, and prevention of costly late-stage engineering rework. |
+113: 
+114: ### The Winning Differentiator: "We Reward Honesty"
+115: > **Direct Quote from BMW Challenge Evaluation Criteria:**  
+116: > *"We reward honesty. Trustworthy AI acknowledges uncertainty. Show us where your app lacks evidence, encounters conflicting signals, or reaches uncertain conclusions, and how this is surfaced to the PM. Honest limitations are a strength, not a weakness."*
+117: 
+118: The application must include an explicit **Uncertainty & Evidence Confidence Index** that transparently highlights:
+119: 1. Low sample size / weak empirical support
+120: 2. Regional contradictions (e.g., EU Autobahn driver desires vs. China chauffeur comfort)
+121: 3. Extrapolations based on forward-looking assumptions (e.g., 2030 battery/software tech) versus proven historical data
+122: 
+123: ---
+124: 
+125: ## 5. SMART Requirements Framework
+126: 
+127: BMW requirements must strictly comply with the **SMART** standard:
+128: 
+129: | SMART Dimension | Definition | Automotive Context |
+130: | :--- | :--- | :--- |
+131: | **Specific** | Concrete and unambiguous system or feature scope | Exact UI component, sensor, or interior system |
+132: | **Measurable** | Objective engineering/UX KPIs & thresholds | Clear quantifiable metrics (e.g. latency $< 45\text{ms}$, 60 fps) |
+133: | **Attainable** | Feasible within vehicle architecture & manufacturing | Compatible with platform packaging & wiring harness |
+134: | **Relevant** | Meaningfully solves verified customer pain | Directly resolves top complaint or aligns with brand strategy |
+135: | **Timely** | Explicit SOP target & vehicle milestone | SOP 2028 (LCI / Successor / Neue Klasse milestone) |
+136: 
+137: ### Benchmark Example: From Complaint to SMART Requirement
+138: * **Raw Voice of Customer (`G70-0891`)**: *"Customer noted she would have chosen the Home theater screen, but it obstructs the view out the rear and BMW does not offer a camera/rear-view mirror screen."*
+139: * **Unacceptable Requirement (Vague)**: *"Improve rear visibility when the theater screen is down."*
+140: * **SMART Requirement (`REQ-G70-VIS-001`)**:
+141:   * **Specific**: Full-display digital streaming rear-view mirror system utilizing an aerodynamic roof-mounted wide-angle camera feeding directly into the central rear-view mirror.
+142:   * **Measurable**: End-to-end video latency $< 45\text{ ms}$; frame rate $\ge 60\text{ fps}$ at $1080\text{p}$; dynamic range $> 120\text{ dB}$ (headlight anti-glare); camera lens auto-defrosting and wash nozzle operational from $-30^\circ\text{C}$ to $+65^\circ\text{C}$.
+143:   * **Attainable**: Integrates with the existing Neue Klasse roof shark-fin camera housing and high-speed automotive Ethernet backbone.
+144:   * **Relevant**: Eliminates the #1 safety blocker preventing theater screen adoption; projected to increase Theater Screen package take-rate by 18%.
+145:   * **Timely**: Targeted for SOP 2028 (G70 LCI / Neue Klasse Luxury derivative).
+146:   * **Package Strategy**: Standard on i7 M70; optional in Innovation Package for base derivatives.
+147: 
+148: ---
+149: 
+150: ## 6. Key Mentors & Stakeholder Insights
+151: 
+152: 1. **Bene_BMW (Product Management Pain Points)**:
+153:    * *Cross-Market Regional Balancing*: Preferences differ radically by climate, usage habits, and culture. A single global specification often fails in either Europe, the US, or China.
+154:    * *Predecessor Feedback Cycles*: Capturing field insights from outgoing models (e.g., F70, G60, G70) and projecting them 3–5 years ahead into future vehicle architectures.
+155:    * *2-Year Timeline*: Requirement prioritization is not a one-time script; it is a collaborative, iterative governance process over ~24 months.
+156: 2. **ThomasFremuthBMW**:
+157:    * Ground proposals in real evidence; maintain strict data hygiene (do not commit raw internal data to public repositories).
+158: 3. **Sebastian_BMW & ThomasBMW**:
+159:    * Scope is tightly focused on Steps 1 & 2 of the automotive development framework.
+160: 
+161: ---
+162: 
+163: ## 7. Required Deliverables Checklist
+164: 
+165: - [ ] **Working Application Prototype**: Demonstrable full-stack software ingesting the datasets and providing an interactive PM experience.
+166: - [ ] **Structured Sample Requirements List**: Complete table with Unique ID, SMART Description, Evidence Links, Priority Score, Evidence Level, Uncertainties, and Decision Status.
+167: - [ ] **End-to-End Workflow Definition**: Clear division between AI autonomous analysis and mandatory PM decision gates.
+168: - [ ] **Traceable & Reconstructable Audit Trail**: Forensic record of all requirement changes, score overrides, timestamps, actors, and documented rationales.
+169: - [ ] **Pitch Presentation Deck (3–5 min)**: Compelling narrative demonstrating real-world value, data grounding, and Trustworthy AI principles.
+
+(End of file - total 169 lines)
+</content>
+Called the Read tool with the following input: {"filePath":"/home/sebi/Code/BMWChallenge/IMPLEMENTATION_PLAN.md"}
+<path>/home/sebi/Code/BMWChallenge/IMPLEMENTATION_PLAN.md</path>
+<type>file</type>
+<content>
+1: # BMW ConceptCraft AI: Technical Implementation Plan
+2: 
+3: **Solution:** AI-Powered Product Requirements Intelligence & PM Decision Cockpit  
+4: **Target Vehicle Scope:** BMW 1 Series (F70), 5 Series (G60/G68), 7 Series (G70), and Neue Klasse Successor Line  
+5: **Target Process:** Automotive Development Steps 1 & 2 $\to$ Gate G1 (Concept Freeze)  
+6: **Architecture Pattern:** Hybrid Knowledge Graph + Vector Store (GraphRAG) with Human-in-the-Loop Governance  
+7: 
+8: ---
+9: 
+10: ## 1. System Architecture Overview
+11: 
+12: The system consists of three integrated layers:
+13: 1. **Data Ingestion & Hybrid Intelligence Layer (Python/FastAPI)**: Ingests heterogeneous customer feedback, market studies, sales projections, option catalogs, and corporate strategy decks into a unified GraphRAG database.
+14: 2. **Deterministic Algorithmic Engines**: Autonomous signal clustering, SMART requirement formulation, explainable multi-factor scoring, and uncertainty quantification.
+15: 3. **Interactive PM Decision Cockpit (React/Vite/Tailwind)**: High-fidelity executive interface enabling Product Managers to review, override, challenge, and approve requirements with an immutable audit trail.
+16: 
+17: ```mermaid
+18: flowchart TD
+19:     subgraph S1["1. Heterogeneous Data Ingestion"]
+20:         D1["Customer Feedback (13.7k Rows)<br/>F70, G60, G70 (US, EU, JP, KR)"]
+21:         D2["Customer Studies<br/>EU, US, China Likert Benchmarks"]
+22:         D3["Sales Volumes<br/>2024, 2025, 2030 Projections"]
+23:         D4["Option Catalogs<br/>Official German Equipment PDFs"]
+24:         D5["400-Page Corporate Deck<br/>Strategic R&D & Delivery Trends"]
+25:     end
+26: 
+27:     subgraph S2["2. Hybrid Storage & Retrieval (GraphRAG)"]
+28:         direction LR
+29:         VEC["Vector Engine (Embeddings)<br/>Semantic Similarity & Document Chunks"]
+30:         REL["Relational & Knowledge Graph (SQLite)<br/>Deterministic Lineage, Findings & Audit Nodes"]
+31:         VEC <--> REL
+32:     end
+33: 
+34:     subgraph S3["3. Autonomous AI & Algorithmic Engines"]
+35:         direction TB
+36:         E1["Signal & Kano Clustering Engine<br/>Groups Complaints, Detects Patterns"]
+37:         E2["SMART Requirement Formulator<br/>Generates Specific, Measurable KPIs"]
+38:         E3["Multi-Factor Prioritization Engine<br/>Score = (Value + Volume + Strategy) / Effort"]
+39:         E4["Trustworthy AI & Conflict Radar<br/>Evidence Confidence Index & Trade-off Flags"]
+40:         E1 --> E2 --> E3
+41:         E2 -.-> E4
+42:     end
+43: 
+44:     subgraph S4["4. Human-in-the-Loop PM Decision Cockpit (UI)"]
+45:         direction TB
+46:         UI1["Executive Overview Dashboard<br/>Volume Trends & Sentiment Velocity"]
+47:         UI2["Requirements Studio<br/>Kanban & Data Table with Filter Gates"]
+48:         UI3["Regional Divergence Matrix<br/>Side-by-Side EU vs US vs China Analysis"]
+49:         UI4["Evidence Lineage Drawer<br/>Verbatim Quote Drilldown & Data Gaps"]
+50:         UI5["PM Governance Modal<br/>Approve | Reject | Challenge | Override Score"]
+51:         UI1 --- UI2 --- UI3
+52:         UI2 --> UI4
+53:         UI4 --> UI5
+54:     end
+55: 
+56:     subgraph S5["5. Enterprise Governance & G1 Gate Deliverable"]
+57:         AUDIT["Immutable Audit Ledger<br/>Chronological Change & Rationale Log"]
+58:         DOSSIER["Gate G1 Concept Freeze Dossier<br/>Exportable Executive Review Package"]
+59:         AUDIT --> DOSSIER
+60:     end
+61: 
+62:     S1 --> S2
+63:     S2 --> S3
+64:     S3 --> S4
+65:     UI5 --> AUDIT
+66: 
+67:     classDef default fill:#ffffff,stroke:#000000,color:#000000,stroke-width:1px;
+68:     style S1 fill:#ffffff,stroke:#000000,stroke-width:1.5px,color:#000000
+69:     style S2 fill:#ffffff,stroke:#000000,stroke-width:1.5px,color:#000000
+70:     style S3 fill:#ffffff,stroke:#000000,stroke-width:1.5px,color:#000000
+71:     style S4 fill:#ffffff,stroke:#000000,stroke-width:1.5px,color:#000000
+72:     style S5 fill:#ffffff,stroke:#000000,stroke-width:1.5px,color:#000000
+73: ```
+74: 
+75: ---
+76: 
+77: ## 2. Database Design & Data Pipeline
+78: 
+79: ### 2.1 Hybrid Knowledge Graph + Vector Schema
+80: A pure vector database lacks the deterministic lineage required for automotive compliance, while a pure relational database cannot perform semantic clustering across unstructured reviews. We implement a **Hybrid GraphRAG** schema:
+81: 
+82: ```sql
+83: -- Core entities in SQLite relational graph
+84: CREATE TABLE findings (
+85:     finding_id TEXT PRIMARY KEY,           -- e.g. 'G60-0412'
+86:     derivative TEXT NOT NULL,              -- 'F70', 'G60', 'G70'
+87:     country TEXT NOT NULL,                 -- 'US', 'DE', 'GB', 'JP', 'KR'
+88:     engine_type TEXT NOT NULL,             -- 'ICE', 'BEVE', 'PHEV'
+89:     feedback_type TEXT,                    -- 'Likes', 'Difficult to Use', 'Defect', 'Wants'
+90:     raw_text TEXT NOT NULL,
+91:     vfc_category TEXT,                     -- Level 2 category
+92:     sentiment_score REAL,                  -- -1.0 to 1.0
+93:     is_imputed INTEGER DEFAULT 0           -- 1 if missing fields were inferred
+94: );
+95: 
+96: CREATE TABLE signals (
+97:     signal_id TEXT PRIMARY KEY,            -- e.g. 'SIG-G60-CLIM-01'
+98:     derivative TEXT NOT NULL,
+99:     title TEXT NOT NULL,
+100:     category TEXT NOT NULL,                -- 'Infotainment', 'Climatization', 'Ergonomics'
+101:     kano_classification TEXT NOT NULL,     -- 'Must-Have', 'Performance', 'Delighter'
+102:     frequency_count INTEGER NOT NULL,
+103:     severity_weight REAL NOT NULL,
+104:     market_distribution TEXT NOT NULL      -- JSON: {"US": 0.72, "EU": 0.20, "RoW": 0.08}
+105: );
+106: 
+107: CREATE TABLE signal_finding_links (
+108:     signal_id TEXT,
+109:     finding_id TEXT,
+110:     PRIMARY KEY (signal_id, finding_id),
+111:     FOREIGN KEY(signal_id) REFERENCES signals(signal_id),
+112:     FOREIGN KEY(finding_id) REFERENCES findings(finding_id)
+113: );
+114: 
+115: CREATE TABLE requirements (
+116:     req_id TEXT PRIMARY KEY,               -- e.g. 'REQ-G60-CLIM-002'
+117:     signal_id TEXT,
+118:     derivative_scope TEXT NOT NULL,        -- 'G60', 'Cross-Platform', 'Neue Klasse'
+119:     title TEXT NOT NULL,
+120:     -- SMART specifications stored in structured JSON
+121:     smart_specific TEXT NOT NULL,
+122:     smart_measurable TEXT NOT NULL,        -- Explicit KPI thresholds
+123:     smart_attainable TEXT NOT NULL,
+124:     smart_relevant TEXT NOT NULL,
+125:     smart_timely TEXT NOT NULL,            -- e.g. 'SOP 2028'
+126:     recommended_package TEXT NOT NULL,     -- 'Standard', 'Innovation Package'
+127:     -- Scoring breakdown
+128:     customer_value_score REAL NOT NULL,    -- 1.0 - 10.0
+129:     market_volume_score REAL NOT NULL,     -- 1.0 - 10.0
+130:     strategic_fit_score REAL NOT NULL,     -- 1.0 - 10.0
+131:     complexity_score REAL NOT NULL,        -- 1.0 - 5.0
+132:     priority_score REAL NOT NULL,
+133:     -- Uncertainty and Trustworthy AI metadata
+134:     evidence_confidence REAL NOT NULL,     -- 0% - 100%
+135:     conflict_flag INTEGER DEFAULT 0,       -- 1 if regional conflict exists
+136:     conflict_notes TEXT,
+137:     key_assumptions TEXT,
+138:     -- PM Decision Status
+139:     status TEXT NOT NULL DEFAULT 'Proposed', -- 'Proposed', 'UnderReview', 'Approved', 'Rejected', 'Challenged'
+140:     pm_decision_rationale TEXT,
+141:     FOREIGN KEY(signal_id) REFERENCES signals(signal_id)
+142: );
+143: 
+144: CREATE TABLE audit_log (
+145:     log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+146:     req_id TEXT NOT NULL,
+147:     timestamp TEXT NOT NULL,
+148:     actor TEXT NOT NULL,                   -- 'AI Engine' vs 'PM User'
+149:     action TEXT NOT NULL,                  -- 'CREATED', 'SCORE_OVERRIDDEN', 'STATUS_CHANGE', 'EDITED'
+150:     previous_state TEXT,                   -- JSON snapshot
+151:     new_state TEXT,                        -- JSON snapshot
+152:     rationale TEXT NOT NULL,
+153:     FOREIGN KEY(req_id) REFERENCES requirements(req_id)
+154: );
+155: ```
+156: 
+157: ### 2.2 Missing Field Handling & Imputation Pipeline
+158: In the raw data, $1,087$ F70 entries and $731$ G60 entries lack `Feedback Type`, and many lack `Vfc Category`. We resolve this deterministically:
+159: 1. **Length & Quality Filter**: Records with raw text $< 12$ characters or non-informative text (`"Good"`, `"N/A"`) are tagged as `Low-Signal` and excluded from core clustering.
+160: 2. **Zero-Shot Heuristic Classifier**:
+161:    * Evaluates text syntax and vocabulary:
+162:      * *Praise keywords* (`"love"`, `"great"`, `"smooth"`, `"pleased"`) $\to$ `Feedback Type: Likes`.
+163:      * *Ergonomic/friction phrases* (`"hard to find"`, `"took time to figure out"`, `"complicated"`, `"distracting"`) $\to$ `Feedback Type: Difficult to Use`.
+164:      * *Failure/bug phrases* (`"glitch"`, `"broke"`, `"freezes"`, `"doesn't connect"`, `"error"`) $\to$ `Feedback Type: Defect`.
+165:      * *Desire/request phrases* (`"wish"`, `"would be nice"`, `"needs"`, `"should offer"`) $\to$ `Feedback Type: Wants`.
+166: 3. **Category Imputation**: For `no_class_found` or missing categories, match against an automotive ontology regex dictionary (e.g., `["screen", "display", "touch", "menu", "idrive"]` $\to$ `Touch screen, operation`).
+167: 4. **Honesty Tagging**: Records with imputed fields are flagged `is_imputed = 1`. If a derived requirement relies heavily on imputed rows, its **Evidence Confidence Index** is penalised and flagged to the PM.
+168: 
+169: ### 2.3 Ingesting the 400-Page Strategic & Sales Report Deck
+170: The 400-page corporate report is ingested through a **Page-Aware Dual-Stream Pipeline**:
+171: 1. **Structural Section Parser**: Splits the document along native chapter and slide headers:
+172:    * *Section A: Global Delivery & Regional Sales Share (BEV vs ICE, Sedan vs SUV)*
+173:    * *Section B: Neue Klasse Platform Strategy & R&D Priorities*
+174:    * *Section C: ConnectedDrive, My BMW App & Digital Software Ecosystem*
+175: 2. **Dual-Stream Representation**:
+176:    * **Narrative Chunks**: Indexed into vector search with exact metadata (`{page: 142, section: "Neue Klasse Architecture", topic: "800V Fast Charging"}`).
+177:    * **Tabular Extracts**: Key delivery and growth numbers parsed into structured JSON to provide ground truth for market demand weighting.
+178: 3. **Citation Anchor**: Every strategic fit score links directly to a cited report page (e.g., `[BMW Group Report, p. 118]`).
+179: 
+180: ---
+181: 
+182: ## 3. Algorithmic Engines
+183: 
+184: ### 3.1 Explainable Multi-Factor Prioritization Model
+185: Prioritization scores must be mathematical, reproducible, and explainable:
+186: 
+187: $$\text{Priority Score} = \frac{\left( \text{Customer Value} \times W_{\text{CV}} \right) + \left( \text{Market Volume} \times W_{\text{MV}} \right) + \left( \text{Strategic Fit} \times W_{\text{SF}} \right)}{\text{Implementation Complexity} \times W_{\text{IC}}}$$
+188: 
+189: #### Factor Calculation:
+190: * **Customer Value ($1.0 - 10.0$)**:
+191:   $$\text{Customer Value} = \min\left(10, \; \left( \log_2(\text{Signal Count} + 1) \times 1.8 \right) + \text{Severity Bonus} + \text{Kano Weight}\right)$$
+192:   * *Severity Bonus*: Defect ($+2.0$), Difficult to Use ($+1.5$), Wants ($+1.0$).
+193:   * *Kano Weight*: Must-Have ($+2.5$), Performance ($+1.5$), Delighter ($+1.0$).
+194: * **Market Volume Factor ($1.0 - 10.0$)**:
+195:   * Directly computed from `sales_volumes.xlsx` addressable 2030 forecast for targeted regions.
+196:   * Normalizes the combined addressable volume: $V_{\text{target}} / V_{\text{max\_fleet}} \times 10.0$.
+197: * **Strategic Fit ($1.0 - 10.0$)**:
+198:   * Evaluates alignment with BMW Group strategic pillars: Neue Klasse platform readiness, circular sustainability, software-defined vehicle OTA, and premium brand perception.
+199: * **Implementation Complexity ($1.0 - 5.0$)**:
+200:   * Level 1: Minor Software OTA / UI adjustment
+201:   * Level 2: Existing sensor/module calibration
+202:   * Level 3: Interior trim / minor hardware packaging change
+203:   * Level 4: New subsystem / supplier integration
+204:   * Level 5: Major structural / platform architecture redesign
+205: 
+206: ### 3.2 The Trustworthy AI & Uncertainty Radar ("We Reward Honesty")
+207: Every requirement carries an **Evidence Confidence Index (ECI)**:
+208: 
+209: $$\text{ECI} = \left( 0.4 \times C_{\text{volume}} \right) + \left( 0.3 \times C_{\text{source\_purity}} \right) + \left( 0.3 \times C_{\text{survey\_correlation}} \right)$$
+210: 
+211: * $C_{\text{volume}}$: Scaled based on sample size ($> 50$ citations = $1.0$, $20-50$ = $0.7$, $< 20$ = $0.4$).
+212: * $C_{\text{source\_purity}}$: Ratio of raw ground-truth feedback vs. imputed rows ($1.0 - \text{Imputed Ratio}$).
+213: * $C_{\text{survey\_correlation}}$: Agreement with quantitative customer study deltas ($1.0$ if backed by survey score drop, $0.5$ if neutral, $0.2$ if unmeasured).
+214: 
+215: #### Regional Conflict Detection Algorithm:
+216: The engine flags requirements where regional customer preferences diverge significantly:
+217: * *Example (Climatization)*:
+218:   * EU customer feedback strongly demands physical tactile HVAC controls for Autobahn speeds.
+219:   * China customer studies favor clean minimalist touch screens with deep AI voice interaction.
+220: * *The System Response*:
+221:   * Automatically sets `conflict_flag = 1`.
+222:   * Generates an actionable trade-off recommendation: *"Recommend dual-tier specification: Standard physical quick-access bar in EU/US; Touch-first layout with haptic feedback for China G68 market."*
+223: 
+224: ---
+225: 
+226: ## 4. Human-in-the-Loop PM Workflow & Decision Gates
+227: 
+228: ```mermaid
+229: stateDiagram-v2
+230:     [*] --> Proposed: AI Pipeline Derivation
+231:     Proposed --> UnderReview: PM Opens Requirement Card
+232:     
+233:     state UnderReview {
+234:         [*] --> Evaluating
+235:         Evaluating --> Modifying: PM Edits SMART Target or Overrides Score
+236:         Evaluating --> Challenging: PM Requests AI Rationale Defense
+237:         Challenging --> Evaluating: AI Updates Context / Evidence
+238:         Modifying --> Evaluating: Changes Staged
+239:     }
+240:     
+241:     UnderReview --> Approved: PM Sign-Off (Logs Rationale)
+242:     UnderReview --> Rejected: PM Rejects (Logs Reason)
+243:     UnderReview --> Deferred: PM Postpones to Next LCI
+244:     
+245:     Approved --> GateG1Candidate: Added to G1 Freeze Scope
+246:     GateG1Candidate --> [*]: 1-Click Concept Freeze Dossier Export
+247: ```
+248: 
+249: ### Mandatory Human Governance Rules
+250: 1. **No Silent Changes**: An AI-generated requirement cannot automatically enter Gate G1 without explicit PM review and sign-off.
+251: 2. **Mandatory Rationale Logging**: Any status change (Approve, Reject, Challenge) or score override requires entering a PM rationale note, which is committed to the immutable audit trail.
+252: 3. **What-If Sensitivity Simulation**: PMs can interactively slide global strategy weights (e.g., *Boost China Market Weight +30%*) and view instant real-time ranking adjustments before committing.
+253: 
+254: ---
+255: 
+256: ## 5. Technology Stack & Component Structure
+257: 
+258: ### Backend (`/backend`)
+259: * **Runtime**: Python 3.14 (Virtual Environment `.venv`)
+260: * **Web Framework**: FastAPI (High-performance async REST API)
+261: * **Data Processing**: Pandas, OpenPyXL, PyPDF / pdfplumber
+262: * **Storage**: SQLite (Embedded relational graph & audit ledger) + In-memory vector similarity index
+263: * **Server**: Uvicorn
+264: 
+265: ### Frontend (`/frontend`)
+266: * **Framework**: React 18 with Vite
+267: * **Styling**: Tailwind CSS (Custom BMW Executive theme: Deep Navy `#061a38`, Tech Blue `#1c69d4`, Slate `#0f172a`, Alert Amber `#f59e0b`)
+268: * **Icons & Visuals**: Lucide React, Recharts (for volume curves, Kano distribution, and confidence radars)
+269: * **State Management**: React Query / Context API for optimistic UI updates and live audit trail synchronization
+270: 
+271: ---
+272: 
+273: ## 6. Phased Implementation Roadmap
+274: 
+275: ```mermaid
+276: gantt
+277:     title BMW ConceptCraft AI: Implementation Schedule
+278:     dateFormat  HH:mm
+279:     axisFormat  %H:%M
+280:     
+281:     section Phase 1: Data Pipeline
+282:     Ingest Feedback, Studies, Sales, Option PDFs :p1_1, 00:00, 30m
+283:     Clean, Filter & Impute Missing Fields        :p1_2, after p1_1, 20m
+284:     Index 400-Page Corporate Report Chunks       :p1_3, after p1_2, 20m
+285: 
+286:     section Phase 2: Core Engines
+287:     Signal Clustering & Kano Engine              :p2_1, after p1_3, 25m
+288:     SMART Requirement Formulator                 :p2_2, after p2_1, 25m
+289:     Multi-Factor Prioritizer & Uncertainty Radar :p2_3, after p2_2, 25m
+290: 
+291:     section Phase 3: Backend API
+292:     FastAPI REST Endpoints & Query Tools         :p3_1, after p2_3, 30m
+293:     Audit Trail & Decision Engine                :p3_2, after p3_1, 20m
+294: 
+295:     section Phase 4: Frontend Cockpit
+296:     Executive Dashboard & Volume Views           :p4_1, after p3_2, 30m
+297:     Requirements Studio (Kanban & Table)         :p4_2, after p4_1, 35m
+298:     Evidence Lineage & Uncertainty Drawer        :p4_3, after p4_2, 25m
+299:     Regional Divergence Matrix & Trade-off Tool  :p4_4, after p4_3, 25m
+300: 
+301:     section Phase 5: Polish & Verification
+302:     Gate G1 Dossier Export (PDF/Markdown)        :p5_1, after p4_4, 20m
+303:     End-to-End Walkthrough & Pitch Deck Prep     :p5_2, after p5_1, 25m
+304: ```
+305: 
+306: ### Detailed Phase Milestones
+307: 
+308: #### Phase 1: Ingestion & Data Preparation
+309: * Parse all $13,771$ feedback records from F70, G60, and G70 Excel sheets.
+310: * Parse quantitative study matrices (`F70_G60_G68_G70_customer_studies.xlsx`) and regional volume projections (`sales_volumes.xlsx`).
+311: * Extract option codes and package definitions from the German OptionList PDFs.
+312: * Extract strategic priorities and delivery numbers from the 400-page corporate report.
+313: * Populate the SQLite relational schema and in-memory embeddings index.
+314: 
+315: #### Phase 2: Algorithmic Engines
+316: * Implement the signal clustering pipeline that aggregates raw findings into core themes.
+317: * Implement the SMART requirement transformer that creates quantified, testable specifications.
+318: * Implement the explainable scoring formula with dynamic factor weighting.
+319: * Implement the Evidence Confidence Index (ECI) and regional conflict detector.
+320: 
+321: #### Phase 3: FastAPI Backend Services
+322: * Build endpoints:
+323:   * `GET /api/dashboard/overview` (high-level stats, volume trends, sentiment split)
+324:   * `GET /api/requirements` (filterable by derivative, market, powertrain, status)
+325:   * `GET /api/requirements/{id}/lineage` (exact feedback quotes, survey links, option specs)
+326:   * `POST /api/requirements/{id}/decision` (approve, reject, edit, challenge + mandatory rationale)
+327:   * `GET /api/conflicts/regional` (cross-market divergence matrix)
+328:   * `GET /api/audit-trail` (chronological event stream)
+329:   * `GET /api/export/g1-dossier` (formatted Gate G1 review package)
+330: 
+331: #### Phase 4: Interactive PM Cockpit UI
+332: * Build the executive navigation and theme system.
+333: * Build the Requirements Studio featuring:
+334:   * Toggle between Kanban and Data Table views.
+335:   * Deep-dive slide-over drawer showing backward lineage to verbatim quotes.
+336:   * Trustworthy AI badge highlighting confidence score and regional conflicts.
+337:   * Direct action buttons (Approve / Reject / Edit / Challenge) with rationale modal.
+338: * Build the Cross-Market Divergence Matrix comparing US, EU, and China.
+339: * Build the Live Audit Trail Viewer.
+340: 
+341: #### Phase 5: Verification & Pitch Alignment
+342: * Verify end-to-end user journeys for F70, G60, and G70.
+343: * Ensure all requirements adhere to the SMART framework.
+344: * Validate that the 1-click Gate G1 export generates an executive-ready dossier.
+345: * Prepare pitch talking points directly aligned with the 3–5 minute presentation limit.
+346: 
+347: ---
+348: 
+349: ## 7. Verification & Demo Scenario
+350: 
+351: To guarantee maximum impact during the evaluation pitch, the application will be demonstrated through a real-world scenario:
+352: 
+353: ### The Scenario: Next-Gen BMW 5 Series / i5 (G60 Successor) for Global Markets
+354: 1. **Discovery**: The AI identifies 3 major friction signals:
+355:    * *Signal A*: Climatization menu latency and lack of physical tactile hotkeys (41 complaints in US/EU).
+356:    * *Signal B*: Cold-weather fast charging pre-conditioning predictability (62 BEV complaints in US/Nordics).
+357:    * *Signal C*: Rear passenger streaming entertainment vs. chauffeur comfort (China G68 customer study gap).
+358: 2. **SMART Formulation**: System displays `REQ-G60-CLIM-002` with explicit latency and tactile feedback KPIs.
+359: 3. **Uncertainty Alert**: System warns the PM of a regional contradiction (EU demands physical dials; China favors minimalist voice/touch displays).
+360: 4. **PM Intervention**: The PM opens the review card, adjusts the specification to include market-specific console modules, overrides the strategic score to reflect Neue Klasse priorities, enters their rationale, and hits **Approve for G1**.
+361: 5. **Audit Verification**: The PM clicks the Audit Trail tab to reveal the complete, tamper-proof event record, followed by generating the **Gate G1 Concept Freeze Dossier** with 1 click.
+
+(End of file - total 361 lines)
+</content>
