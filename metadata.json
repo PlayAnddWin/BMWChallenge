@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4KGCFA2SA1SGA6VGC74VRNT",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 4,
+  "files_touched": [
+    ".env.example",
+    ".gitignore",
+    "AI_ENGINE_BRANCH_REVIEW.md",
+    "CONFIGURATION.md",
+    "IMPLEMENTATION_PLAN.md",
+    "roles/01_DATA_AND_EVIDENCE.md",
+    "roles/02_AI_AND_REVIEW_ASSISTANT.md",
+    "roles/03_BACKEND_AND_GOVERNANCE.md",
+    "roles/04_FRONTEND_AND_PM_WORKBENCH.md",
+    "roles/05_PITCH_DEMO_AND_SUBMISSION.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 36,
+    "cache_creation_tokens": 20484,
+    "cache_read_tokens": 3907452,
+    "output_tokens": 6790,
+    "api_call_count": 13
+  }
+}

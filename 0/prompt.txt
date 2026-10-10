@@ -1,0 +1,1 @@
+so all these roles can work in paralel on separate branches then at the end combine them and have the final product?
