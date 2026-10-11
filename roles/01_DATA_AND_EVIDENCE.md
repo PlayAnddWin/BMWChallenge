@@ -20,6 +20,8 @@ Use this assignment with [the implementation plan](../IMPLEMENTATION_PLAN.md). T
 
 Supply source DTO/schema definitions to Role 3, who coordinates `models.py`, `config.py`, constraints and API entry points. Neo4j is the authoritative store. You define source nodes/relationships; Role 3 incorporates constraints and transaction infrastructure.
 
+**Shared environment:** use root [.env.example](../.env.example) and [CONFIGURATION.md](../CONFIGURATION.md). Read `BMW_RAW_DATA_DIR`, `BMW_DATA_DIR` and graph settings through `config.py`; do not introduce `RAW_DATA_PATH`/`PROCESSED_DIR` aliases or your own dotenv/defaults. Relative paths resolve from the repository root.
+
 ### Branch Repairs Assigned to This Role
 
 Task IDs match the repair backlog in the implementation plan. P0 repairs block the trustworthy judged demonstration. The hour-3 slice can start with real feedback while full heterogeneous conversion completes by hour 6; P1 repairs complete the sample/demo evidence.

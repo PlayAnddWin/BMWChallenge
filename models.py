@@ -158,14 +158,16 @@ class SourceReference(StrictContract):
     def located(cls, value):
         if not value:
             raise ValueError("Original evidence locator is required")
-        def check(item):
+        def check(item, key=None):
+            if item is None and key == "printed_page":
+                return
             if isinstance(item, bool) or item is None:
                 raise ValueError("Locator coordinates cannot be booleans or null")
             if isinstance(item, dict):
                 if not item or any(not isinstance(key, str) or not key.strip() for key in item):
                     raise ValueError("Locator keys must be nonblank names")
-                for coordinate in item.values():
-                    check(coordinate)
+                for name, coordinate in item.items():
+                    check(coordinate, name)
             elif isinstance(item, list):
                 if not item:
                     raise ValueError("Locator coordinate lists cannot be empty")

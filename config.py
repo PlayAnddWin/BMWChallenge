@@ -1,112 +1,132 @@
-"""Central configuration for BMW AI Requirements Engine."""
+"""Canonical root environment reader for the evidence and application layers."""
+
+from functools import lru_cache
 import os
 from pathlib import Path
+from urllib.parse import urlsplit
+
 from dotenv import load_dotenv
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
-load_dotenv()
 
-# ── Paths ──────────────────────────────────────────────────────────────────
 REPO_ROOT = Path(__file__).resolve().parent
-DATA_DIR = Path(os.getenv("BMW_DATA_DIR", str(REPO_ROOT / "var" / "processed")))
 
-F70_FEEDBACK   = DATA_DIR / "f70_feedbacks_clean.json"
-G60_FEEDBACK   = DATA_DIR / "g60_feedbacks_clean.json"
-G70_FEEDBACK   = DATA_DIR / "g70_feedbacks_clean.json"
-STUDIES_FILE   = DATA_DIR / "customer_studies_clean.json"
-SALES_FILE     = DATA_DIR / "sales_volumes_clean.json"
-OPTIONS_FILE   = DATA_DIR / "option_lists_clean.json"
 
-# ── Neo4j ──────────────────────────────────────────────────────────────────
-NEO4J_URI      = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-NEO4J_USER     = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "bmwpassword")
+def resolve_path(value: str | Path) -> Path:
+    path = Path(value).expanduser()
+    return (REPO_ROOT / path).resolve() if not path.is_absolute() else path.resolve()
 
-# ── LLM API — OpenAI (primary) or Anthropic (fallback) ────────────────────
-OPENAI_API_KEY    = os.getenv("OPENAI_API_KEY", "")
-OPENAI_MODEL      = os.getenv("OPENAI_MODEL", "gpt-4o-mini")   # gpt-4o for higher quality
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-CLAUDE_MODEL      = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
+class Settings(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
 
-# Active LLM provider: "openai" or "anthropic"
+    openai_api_key: SecretStr
+    openai_model: str = Field(min_length=1)
+    raw_data_dir: Path
+    data_dir: Path
+    output_dir: Path
+    cache_dir: Path
+    neo4j_uri: str
+    neo4j_user: str = Field(min_length=1)
+    neo4j_password: SecretStr
+    neo4j_database: str = Field(default="neo4j", min_length=1)
+    api_host: str
+    api_port: int = Field(ge=1, le=65535)
+    api_base_url: str
+    api_prefix: str = "/api"
+    backend_adapter_factory: str = ""
+    streamlit_server_address: str
+    streamlit_server_port: int = Field(ge=1, le=65535)
+
+    @field_validator("neo4j_uri")
+    @classmethod
+    def graph_uri(cls, value: str) -> str:
+        parsed = urlsplit(value)
+        if parsed.scheme not in {"bolt", "bolt+s", "bolt+ssc", "neo4j", "neo4j+s", "neo4j+ssc"} or not parsed.hostname:
+            raise ValueError("NEO4J_URI must be a Bolt or Neo4j URL")
+        if parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path not in {"", "/"}:
+            raise ValueError("NEO4J_URI must not contain credentials, query, fragment, or a database path")
+        if parsed.port is not None and not 1 <= parsed.port <= 65535:
+            raise ValueError("NEO4J_URI port out of range")
+        return value
+
+    @field_validator("api_base_url")
+    @classmethod
+    def http_origin(cls, value: str) -> str:
+        parsed = urlsplit(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            raise ValueError("API_BASE_URL must be an HTTP(S) URL")
+        if parsed.username or parsed.password or parsed.query or parsed.fragment:
+            raise ValueError("API_BASE_URL must not contain credentials, query, or fragment")
+        if parsed.port is not None and not 1 <= parsed.port <= 65535:
+            raise ValueError("API_BASE_URL port out of range")
+        return value.rstrip("/")
+
+    @field_validator("api_prefix")
+    @classmethod
+    def route_prefix(cls, value: str) -> str:
+        if value and (not value.startswith("/") or value.endswith("/") or "?" in value or "#" in value):
+            raise ValueError("API_PREFIX must be empty or an absolute route prefix without a trailing slash")
+        return value
+
+
+def load_settings() -> Settings:
+    load_dotenv(REPO_ROOT / ".env", override=False)
+    port = os.environ.get("API_PORT", "8000")
+    return Settings(
+        openai_api_key=os.environ.get("OPENAI_API_KEY", ""),
+        openai_model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
+        raw_data_dir=resolve_path(os.environ.get("BMW_RAW_DATA_DIR", "./BMW-Data")),
+        data_dir=resolve_path(os.environ.get("BMW_DATA_DIR", "./var/processed")),
+        output_dir=resolve_path(os.environ.get("BMW_OUTPUT_DIR", "./var/exports")),
+        cache_dir=resolve_path(os.environ.get("BMW_CACHE_DIR", "./var/cache")),
+        neo4j_uri=os.environ.get("NEO4J_URI", "bolt://localhost:7687"),
+        neo4j_user=os.environ.get("NEO4J_USER", "neo4j"),
+        neo4j_password=os.environ.get("NEO4J_PASSWORD", "bmwpassword"),
+        neo4j_database=os.environ.get("NEO4J_DATABASE", "neo4j"),
+        api_host=os.environ.get("API_HOST", "0.0.0.0"), api_port=port,
+        api_base_url=os.environ.get("API_BASE_URL", f"http://localhost:{port}"),
+        api_prefix=os.environ.get("API_PREFIX", "/api"),
+        backend_adapter_factory=os.environ.get("BACKEND_ADAPTER_FACTORY", ""),
+        streamlit_server_address=os.environ.get("STREAMLIT_SERVER_ADDRESS", "0.0.0.0"),
+        streamlit_server_port=os.environ.get("STREAMLIT_SERVER_PORT", "8501"),
+    )
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    return load_settings()
+
+
 def select_llm_provider(environ=None, *, required=False):
-    """Choose an available provider; fail truthfully for missing explicit keys."""
+    """Compatibility boundary: OpenAI is the only supported live provider."""
     env = os.environ if environ is None else environ
     requested = env.get("LLM_PROVIDER", "").strip().lower()
-    if requested and requested not in {"openai", "anthropic"}:
-        raise ValueError("LLM_PROVIDER must be openai or anthropic")
-    available = {name: bool(env.get(key, "").strip()) for name, key in
-                 (("openai", "OPENAI_API_KEY"), ("anthropic", "ANTHROPIC_API_KEY"))}
-    if requested:
-        if not available[requested]:
-            raise ValueError(f"{requested.upper()}_API_KEY is required for LLM_PROVIDER={requested}")
-        return requested
-    provider = next((name for name in ("openai", "anthropic") if available[name]), None)
-    if required and provider is None:
-        raise ValueError("Set OPENAI_API_KEY or ANTHROPIC_API_KEY for live generation")
-    return provider
+    if requested and requested != "openai":
+        raise ValueError("OpenAI is the only supported provider; remove legacy LLM_PROVIDER")
+    key = env.get("OPENAI_API_KEY", "")
+    if not key.strip():
+        if required:
+            raise ValueError("Set OPENAI_API_KEY for live generation")
+        return None
+    return "openai"
 
 
-LLM_PROVIDER = select_llm_provider()
-RAW_DATA_DIR = Path(os.getenv("BMW_RAW_DATA_DIR", str(REPO_ROOT / "BMW-Data")))
-OUTPUT_DIR = Path(os.getenv("BMW_OUTPUT_DIR", str(REPO_ROOT / "var" / "exports")))
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
-NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "neo4j")
+# Existing CLI/API imports remain compatible; all values derive from this one reader.
+_settings = get_settings()
+DATA_DIR, RAW_DATA_DIR = _settings.data_dir, _settings.raw_data_dir
+OUTPUT_DIR, CACHE_DIR = _settings.output_dir, _settings.cache_dir
+NEO4J_URI, NEO4J_USER = _settings.neo4j_uri, _settings.neo4j_user
+NEO4J_PASSWORD = _settings.neo4j_password.get_secret_value()
+NEO4J_DATABASE = _settings.neo4j_database
+OPENAI_API_KEY, OPENAI_MODEL = _settings.openai_api_key.get_secret_value(), _settings.openai_model
+API_HOST, API_PORT, API_BASE_URL = _settings.api_host, _settings.api_port, _settings.api_base_url
+API_PREFIX, BACKEND_ADAPTER_FACTORY = _settings.api_prefix, _settings.backend_adapter_factory
 
-# ── Models in scope ────────────────────────────────────────────────────────
-MODELS_IN_SCOPE = ["F70", "G60", "G68", "G70"]
-
-# Legacy-v0 compatibility only; authoritative v1 scoring must use sourced forecasts.
-# Sales volumes (units/year) — from sales_volumes_clean.json
-SALES_VOLUMES = {
-    # 2025 volumes from sales_volumes.xlsx
-    "F70": {"EU": 85_000, "RoW": 28_000, "CN": 0,       "US": 0},
-    "G60": {"EU": 115_000, "RoW": 28_000, "CN": 75_000, "US": 78_000},
-    "G70": {"EU": 13_000,  "RoW": 7_000,  "CN": 10_000, "US": 12_000},
-}
-
-# Normalisation base: G60 EU is the largest market (115k → 10.0)
-MARKET_REACH_BASE = 115_000
 
 def market_reach_norm(model: str, market: str) -> float:
-    vol = SALES_VOLUMES.get(model, {}).get(market, 0)
-    return round(vol / MARKET_REACH_BASE * 10, 2)
-
-# Historical unverified assumptions, for explicit legacy reproduction only.
-LEGACY_SOURCE_CHANNEL = {
-    "A": "GENERAL_SURVEY",
-    "B": "STANDARD_SURVEY",
-    "C": "COMPLAINT_CHANNEL",   # 82 % pain, bias correction required
-    "D": "OPEN_ENDED",
-}
-LEGACY_SOURCE_CHANNEL_BIAS = {
-    "C": 0.70,   # discount sentiment by 30 % for complaint-only channel
-}
-SOURCE_CHANNEL = {key: key for key in "ABCD"}
-SOURCE_CHANNEL_BIAS = {}
-
-# Evidence tiers
-EVIDENCE_TIERS = {
-    "STRONG":   {"confidence": 1.0, "min_feedbacks": 30},
-    "MODERATE": {"confidence": 0.7, "min_feedbacks": 10},
-    "WEAK":     {"confidence": 0.4, "min_feedbacks":  0},
-}
-
-# Decision gate thresholds
-GATE_GREEN_MIN_CONFIDENCE = 0.80
-GATE_AMBER_MIN_CONFIDENCE = 0.50
-
-# BMW Priority weights
-BMW_PRIORITY_WEIGHTS = {
-    "impact":        0.40,
-    "market_reach":  0.30,
-    "effort_inverse": 0.30,
-}
-
-# ── FastAPI ────────────────────────────────────────────────────────────────
-API_HOST = os.getenv("API_HOST", "0.0.0.0")
-API_PORT = int(os.getenv("API_PORT", "8000"))
-
-# New governance contract prefix; legacy root routes remain available.
-API_PREFIX = os.getenv("API_PREFIX", "/api")
-BACKEND_ADAPTER_FACTORY = os.getenv("BACKEND_ADAPTER_FACTORY", "")
+    """Explicit legacy-v0 reproduction only; never used for authoritative v1 reach."""
+    volumes = {"F70": {"EU": 85000, "RoW": 28000, "CN": 0, "US": 0},
+               "G60": {"EU": 115000, "RoW": 28000, "CN": 75000, "US": 78000},
+               "G70": {"EU": 13000, "RoW": 7000, "CN": 10000, "US": 12000}}
+    return round(volumes.get(model, {}).get(market, 0) / 115000 * 10, 2)

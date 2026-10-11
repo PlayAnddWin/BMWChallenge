@@ -137,12 +137,14 @@ The branch has not been merged/fixed by this documentation task. The structures 
 
 - **Backend:** extend the existing FastAPI/Pydantic/Uvicorn API and Neo4j driver; add OpenPyXL and a PDF parser for raw conversion.
 - **Frontend:** complete/polish `pipeline/08_streamlit_ui.py`; all UI work belongs to Owner 4. Rendering calls HTTP, not Cypher/model/scoring logic.
-- **LLM:** preserve OpenAI/Anthropic selection behind a shared adapter using the branch's `OPENAI_API_KEY`/`OPENAI_MODEL` and `ANTHROPIC_API_KEY`/`CLAUDE_MODEL` configuration. Repair runner/compose selection before relying on startup.
+- **LLM:** OpenAI only, using `OPENAI_API_KEY`/`OPENAI_MODEL` from the shared root configuration. Remove the legacy Anthropic prerequisite/fallback and repair runner/Compose wiring before relying on startup.
 - **Retrieval:** Neo4j full-text indexes or a bounded lexical provider behind the evidence interface. Counts/citations come from authoritative nodes, not search hits or model prose.
 - **Execution:** one API process with persisted background run state and bounded engine calls; no separate queue infrastructure.
 - **Python:** the branch Dockerfile uses 3.12; local review imports worked on 3.14. Pin a tested project environment rather than relying on unconstrained lower-bound dependencies.
 
 Use Neo4j managed write transactions for state, revision, ranking and audit atomicity. Store nested immutable snapshots as JSON properties; native Neo4j properties cannot store arbitrary nested dictionaries.
+
+**Canonical environment:** root [.env.example](.env.example) and [CONFIGURATION.md](CONFIGURATION.md) define all runtime variable names/defaults. Owner 3 maintains the single `config.py` reader; other modules import its typed settings without redeclaring env variables, loading their own dotenv files, or copying defaults. Data paths, OpenAI, graph credentials, API origin and Streamlit settings use this same contract in local and container processes.
 
 ### 3.2 Proposed Files
 
@@ -189,18 +191,18 @@ Keep raw BMW data and derived quotes, databases, caches, and exports out of publ
 After the engine branch is integrated, dependencies installed, and Owner 1's raw-conversion extension and Owner 3's startup fixes are complete:
 
 ```bash
-python pipeline/00_preprocess.py --raw-data-dir BMW-Data --output-dir var/processed
-python -m uvicorn pipeline.07_pm_review_api:app --host 127.0.0.1 --port 8000
+python pipeline/00_preprocess.py
+python pipeline/07_pm_review_api.py
 streamlit run pipeline/08_streamlit_ui.py
 ```
 
-The conversion flags above are a required extension; the reviewed step 00 only enriches existing external JSON. The fixed pipeline runner uses `BMW_DATA_DIR` pointing at the converted data and accepts either configured model provider. Frontend uses explicit `API_BASE_URL` for local/container access. Owner 3 documents the tested local/Compose startup path.
+The reviewed step 00 only enriches existing external JSON; its extension reads `BMW_RAW_DATA_DIR` and writes `BMW_DATA_DIR` through shared config. The fixed runner uses OpenAI credentials and the same processed path. Backend uses configured API_HOST/API_PORT; frontend uses API_BASE_URL. The launcher exports native STREAMLIT_SERVER_* settings before starting the CLI, as defined in CONFIGURATION.md. Owner 3 documents the tested local/Compose startup path.
 
 ### 3.4 Integration and Legacy-Artifact Treatment
 
 1. Owner 3 coordinates bringing the reviewed engine code into the team's shared integration baseline, preserving current documentation and the union of ignore rules. Split step 06's drafting versus scoring/write helpers before parallel edits.
 2. Agree the processed-format manifest, source/claim IDs, strict keyed model outputs, legacy/v1 score versions, uppercase states, and expected-revision mutation contracts with Owners 1/2/4.
-3. Fix startup: runner accepts OpenAI or Anthropic; Compose forwards the selected key/model settings; UI receives API_BASE_URL=http://api:8000 in containers. Missing input/provider/server states stay explicit.
+3. Fix startup: runner uses OpenAI only; Compose forwards OPENAI_API_KEY/OPENAI_MODEL to the API, graph credentials use shared settings, and UI receives API_BASE_URL=http://api:${API_PORT} plus native Streamlit settings. Missing input/OpenAI/server states stay explicit. CONFIGURATION.md defines the complete path/network contract.
 4. Preserve the 250 exported candidates as legacy/unverified. Owner 1 resolves raw source versions/locations; Owner 2 validates exact spans, assignment and proposed claims; Owner 3 creates new validated/reviewable revisions. Source matching must not silently select an ambiguous first hit or replace the original artifact.
 5. Block approval/freeze while the underlying basis remains unverified. A model SMART flag, GREEN gate, matched arithmetic or empty gap array cannot satisfy review guards. Preserve PM-approved/rejected revisions when generation runs again.
 6. Store future processed files/caches/customer-quote exports in private `var/` storage. Integrate `.gitignore` as a union retaining existing `.venv`/data exclusions; ignoring a path does not remove tracked content. Repository-history rewriting is outside this implementation task.
@@ -752,7 +754,7 @@ All items below derive from reviewed snapshot `3bd0251`; role guides include the
 | **R07** | P0 | Scalar feedback type erases annotation polarity; Signal only links broad VFC | 1 with 2; 4 renders evidence | Mixed annotations retained; exact source rows/spans/direct membership; distinct issue counts separate from bucket/annotation counts. |
 | **R08** | P0 | External clean JSON assumed; no raw conversion/corporate-report ingestion | 1; 3 wires runs | From supplied files produce versioned manifest/evidence; quote/cell/page resolves; missing required inputs cannot masquerade as success. |
 | **R09** | P0 | Streamlit calls its own localhost inside Docker | 4 with 3 | Configured API_BASE_URL and actual container UI → API smoke check. |
-| **R10** | P0 | Runner requires Anthropic; Compose omits OpenAI configuration | 3 | OpenAI-only/Anthropic-only configuration supported, selected variables forwarded, neither gives truthful unavailable state. |
+| **R10** | P0 | Runner requires Anthropic; Compose omits OpenAI configuration | 3 | Canonical OpenAI-only configuration; key/model forwarded to API, no Anthropic prerequisite/fallback, missing key gives truthful unavailable state. |
 | **R11** | P1 | Max hard-coded 2025 reach, ignored target scope, zeroed G60/G70 RoW | 3 using 1 | Sourced scoped 2030 volumes, G60_G68 deduplication, fixed reference and explicit proxy assumptions. |
 | **R12** | P1 | Broad count implies STRONG=1.0; assumed channel semantics/bias | 3 with 1/2 | Versioned issue-based ECI, coverage/concentration/review gaps; no unsupported channel truth or calibrated-probability claim. |
 | **R13** | P1 | Keyword/native-scale/region pooling and upgrades despite study opposition | 2 with 1/3 | Reviewed metric scope/scale mapping; contradiction remains explicit; ambiguous/opposing study does not inflate strength. |

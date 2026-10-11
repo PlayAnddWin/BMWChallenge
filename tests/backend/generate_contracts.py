@@ -1,4 +1,4 @@
-"""Publish synthetic examples from the actual backend, never private inputs.
+"""Publish OpenAPI; synthetic contract cases are generated in memory by tests.
 
 Run: PYTHONPATH=.:tests/backend .venv/bin/python tests/backend/generate_contracts.py
 """
@@ -27,7 +27,7 @@ class ContractEngine(FakeEngine):
                     prompt_metadata={"version": "synthetic-review-v1"})
 
 
-def main():
+def build_examples():
     repository = MemoryRepository()
     draft = fixture_draft()
     app = create_app(repository, FakeEvidence(), engine=ContractEngine({"title": "Reviewed synthetic controls"}))
@@ -82,10 +82,12 @@ def main():
                        proposal_list_example=get(f'/requirements/{rid}/proposals'),
                        proposal_example=proposal, proposal_discard_request_example=discard_request,
                        proposal_discard_example=post(f'/requirements/{rid}/proposals/{proposal_id}/discard', discard_request))
+    return fixture
+
+
+def main():
     directory = Path(__file__).resolve().parents[2] / "contracts"
-    directory.mkdir(exist_ok=True)
-    (directory / "fixture_case.json").write_text(json.dumps(fixture, indent=2) + "\n")
-    (directory / "openapi.json").write_text(json.dumps(app.openapi(), indent=2) + "\n")
+    (directory / "openapi.json").write_text(json.dumps(create_app(MemoryRepository()).openapi(), indent=2) + "\n")
 
 
 if __name__ == "__main__":

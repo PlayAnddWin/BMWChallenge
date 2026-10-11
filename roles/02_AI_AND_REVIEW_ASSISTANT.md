@@ -20,6 +20,8 @@ Use the implemented signal/draft stages at `origin/ai-requirements-engine`, snap
 
 Split step 06's drafting and persistence boundaries with Role 3 before simultaneous edits. Shared `models.py` and `config.py` are coordinated by Role 3; supply your DTO definitions. Role 3 owns HTTP mounting/job infrastructure; you supply callable engine services. Role 4 owns every UI component.
 
+**Shared environment:** [.env.example](../.env.example) and [CONFIGURATION.md](../CONFIGURATION.md) are canonical. Use `OPENAI_API_KEY`, `OPENAI_MODEL`, and `BMW_CACHE_DIR` through `config.py`. OpenAI is the only provider; missing key means live generation unavailable, never Anthropic fallback. Retire legacy Anthropic imports/provider branches with Role 3; do not add `LLM_API_KEY` aliases or another dotenv loader.
+
 ## Branch Repairs Assigned to This Role
 
 Task IDs match the plan. Fix P0 identity/provenance problems before relying on a live generation output.
@@ -74,7 +76,7 @@ Inject evidence provider, fake/real model adapter, backend scoring-preview and r
 
 ### Draft generation
 
-- Use OpenAI/Anthropic behind the existing provider configuration, with Pydantic schema validation.
+- Use OpenAI behind the canonical configuration/adapter, with Pydantic schema validation.
 - Preserve baseline JTBD/metric output where useful, but add explicit target/scope/provenance/test fields.
 - Require input signal ID in each returned draft; model order has no meaning.
 - Tag source-backed versus AI-proposed versus PM-entered targets. Exact latency/SOP/architecture/commercial uplift needs a source or explicit proposal/assumption label.

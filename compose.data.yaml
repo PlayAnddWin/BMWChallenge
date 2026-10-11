@@ -1,0 +1,29 @@
+# Keep the Neo4j service identical in docker-compose.yml so API startup reuses it.
+name: bmwchallenge-data
+
+services:
+  neo4j:
+    image: neo4j:5.26-community
+    restart: unless-stopped
+    mem_limit: 3g
+    ports:
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
+    environment:
+      NEO4J_AUTH: "${NEO4J_USER:?Set NEO4J_USER in the root .env}/${NEO4J_PASSWORD:?Set NEO4J_PASSWORD in the root .env}"
+      NEO4J_server_memory_heap_initial__size: 512M
+      NEO4J_server_memory_heap_max__size: 1536M
+      NEO4J_server_memory_pagecache_size: 256M
+      NEO4J_dbms_memory_transaction_total_max: 1G
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://localhost:7474/"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 20s
+
+volumes:
+  # Shared with the application Compose file: bmwchallenge-data_neo4j_data.
+  neo4j_data:

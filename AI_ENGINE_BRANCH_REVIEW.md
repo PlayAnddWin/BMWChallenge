@@ -67,7 +67,7 @@ The 212 non-matches need source validation. Preprocessing/translation could expl
 | P0 | Signals link to a broad VFC rather than exact contributing comments; loader stores one feedback_type on a multi-topic comment | Preserve rows/annotations and direct signal-to-evidence assignments; count distinct issue comments | 1 with 2 |
 | P0 | The branch assumes external `BMW-Processed` JSON; no raw XLSX/PDF converter or corporate-report ingestion is included | Provide conversion from supplied inputs, immutable source versions/locators, and strategy passages | 1 |
 | P0 | `08_streamlit_ui.py:26` uses localhost in the UI container; compose supplies API_HOST but UI ignores it | Explicit API_BASE_URL, fixture-backed client adapter, container-host verification | 4 with 3 |
-| P0 | Runner requires ANTHROPIC_API_KEY even though OpenAI is primary; compose API does not forward OpenAI credentials/model | Accept either configured provider, pass selected variables, validate the documented startup path | 3 |
+| P0 | Runner requires ANTHROPIC_API_KEY even though OpenAI is primary; compose API does not forward OpenAI credentials/model | Apply the team's OpenAI-only configuration decision: canonical OPENAI_API_KEY/OPENAI_MODEL, no Anthropic prerequisite/fallback, and tested startup | 3 |
 | P1 | Generator uses max hard-coded 2025 market volume, not actual requested region/powertrain/2030 scope; G60/G70 RoW volume is zeroed | Source-linked scoped forecasts, fixed normalization, explicit proxy/missing-data assumptions | 3 using 1 |
 | P1 | STRONG implies confidence 1.0 solely from group count; source-channel semantics/bias are assumed; imported bias adjustment is unused | Transparent reviewed evidence rubric, concentration/coverage gaps, no unsupported source-channel truth | 3 with 1/2 |
 | P1 | Step 05 uses keyword matching, pooled markets, assumed 1–10 scales and can upgrade WEAK even when opposed | Reviewed metric mapping/native scales/scope; contradictory evidence separate from strength; no automatic unjustified upgrade | 2 with 1/3 |
@@ -89,6 +89,8 @@ P0 items block a trustworthy end-to-end demonstration. P1 items are implemented 
 5. **Pitch/demo:** verified story, presentation, acceptance walkthrough, backup recording, artifact packaging.
 
 Keep root `models.py`/`config.py` coordinated by Role 3 and let Roles 1/2 supply their definitions. Split score/persistence helpers from step 06 without rewriting the entire pipeline. Existing root URLs/status vocabulary can be adapted to the richer planned API; add `/api` aliases and typed responses deliberately.
+
+The team subsequently selected OpenAI as the only provider. Root `.env.example` and `CONFIGURATION.md` are the shared environment contract; the observed Anthropic behavior is legacy code to retire, not a required team setting.
 
 Use Neo4j as the single authoritative store and Neo4j transactions for state/audit atomicity. The logical entities/revision DTOs in the implementation plan remain valid; store structured snapshots as JSON properties on versioned nodes. The planned 0–100 score is a new versioned policy; existing 0–10 exports must remain labeled legacy rather than silently mixed.
 

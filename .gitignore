@@ -1,19 +1,19 @@
 .DS_Store
-BMW-Data
-BMW-Data/
+# Private source datasets and environments.
+/BMW-Data/
 .venv/
 scratch/
-
 .env
-__pycache__/
-pipeline/__pycache__/
 .env.*
 !.env.example
+
+# Derived evidence, caches, exports, coverage and local artifacts.
 var/
+BMW-Processed/
 output/
 data/
-BMW-Processed/
-.pytest_cache/
+__pycache__/
 *.pyc
+.pytest_cache/
 .coverage*
 htmlcov/

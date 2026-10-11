@@ -1,58 +1,74 @@
+# Share the existing Role 1 project and data volume with compose.data.yaml.
+name: bmwchallenge-data
+
 services:
   neo4j:
-    image: neo4j:5.20-community
+    image: neo4j:5.26-community
+    restart: unless-stopped
+    mem_limit: 3g
     ports:
       - "127.0.0.1:7474:7474"
       - "127.0.0.1:7687:7687"
     environment:
-      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-bmwpassword}
+      NEO4J_AUTH: "${NEO4J_USER:?Set NEO4J_USER in the root .env}/${NEO4J_PASSWORD:?Set NEO4J_PASSWORD in the root .env}"
+      NEO4J_server_memory_heap_initial__size: 512M
+      NEO4J_server_memory_heap_max__size: 1536M
+      NEO4J_server_memory_pagecache_size: 256M
+      NEO4J_dbms_memory_transaction_total_max: 1G
     volumes:
       - neo4j_data:/data
-      - neo4j_logs:/logs
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
-      interval: 10s
+      test: ["CMD", "wget", "--quiet", "--spider", "http://localhost:7474/"]
+      interval: 5s
       timeout: 5s
-      retries: 20
+      retries: 24
+      start_period: 20s
   api:
     build: .
-    command: python -m uvicorn services.api:app --host 0.0.0.0 --port 8000
+    command:
+      - python
+      - -c
+      - "from config import get_settings; import uvicorn; settings = get_settings(); uvicorn.run('services.api:app', host=settings.api_host, port=settings.api_port, workers=1)"
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:${API_PORT:-8000}:${API_PORT:-8000}"
     environment:
       NEO4J_URI: bolt://neo4j:7687
-      NEO4J_USER: neo4j
-      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-bmwpassword}
+      NEO4J_USER: ${NEO4J_USER:?Set NEO4J_USER in the root .env}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:?Set NEO4J_PASSWORD in the root .env}
       NEO4J_DATABASE: ${NEO4J_DATABASE:-neo4j}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-sonnet-4-6}
-      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      API_HOST: ${API_HOST:-0.0.0.0}
+      API_PORT: ${API_PORT:-8000}
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:${API_PORT:-8000}}
       API_PREFIX: ${API_PREFIX:-/api}
       BACKEND_ADAPTER_FACTORY: ${BACKEND_ADAPTER_FACTORY:-}
       BMW_DATA_DIR: /data/processed
       BMW_RAW_DATA_DIR: /data/raw
       BMW_OUTPUT_DIR: /app/var/exports
+      BMW_CACHE_DIR: /app/var/cache
     volumes:
-      - ${BMW_DATA_DIR:-./var/processed}:/data/processed:ro
+      - ${BMW_DATA_DIR:-./var/processed}:/data/processed
       - ${BMW_RAW_DATA_DIR:-./BMW-Data}:/data/raw:ro
-      - ./var/exports:/app/var/exports
+      - ${BMW_OUTPUT_DIR:-./var/exports}:/app/var/exports
+      - ${BMW_CACHE_DIR:-./var/cache}:/app/var/cache
     depends_on:
       neo4j:
         condition: service_healthy
   ui:
     build: .
     profiles: [ui]
-    command: streamlit run pipeline/08_streamlit_ui.py --server.port 8501 --server.address 0.0.0.0
+    command: streamlit run pipeline/08_streamlit_ui.py
     ports:
-      - "127.0.0.1:8501:8501"
+      - "127.0.0.1:${STREAMLIT_SERVER_PORT:-8501}:${STREAMLIT_SERVER_PORT:-8501}"
     environment:
-      API_BASE_URL: http://api:8000
-      API_HOST: api
-      API_PORT: "8000"
+      API_BASE_URL: http://api:${API_PORT:-8000}
+      API_PORT: ${API_PORT:-8000}
+      API_PREFIX: ${API_PREFIX:-/api}
+      STREAMLIT_SERVER_ADDRESS: ${STREAMLIT_SERVER_ADDRESS:-0.0.0.0}
+      STREAMLIT_SERVER_PORT: ${STREAMLIT_SERVER_PORT:-8501}
     depends_on:
       - api
 volumes:
+  # Resolves to the already imported bmwchallenge-data_neo4j_data volume.
   neo4j_data:
-  neo4j_logs:

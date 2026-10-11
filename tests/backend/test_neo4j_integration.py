@@ -358,6 +358,16 @@ def test_real_pdf_chunk_reference_verification_requires_unique_provenance(graph_
             session.run('MATCH (c:DocumentChunk {id:$cid}) SET c:SourceRecord', cid=cid).consume()
         elif ambiguous:
             label = 'SourceRecord' if ambiguous == 'record' else 'DocumentChunk'
+            if ambiguous == 'duplicate-chunk':
+                from neo4j.exceptions import ConstraintError
+                constraints = session.run("SHOW CONSTRAINTS YIELD labelsOrTypes, properties RETURN labelsOrTypes, properties").data()
+                if any(row['labelsOrTypes'] == ['DocumentChunk'] and row['properties'] == ['id'] for row in constraints):
+                    with pytest.raises(ConstraintError):
+                        session.run('CREATE (:DocumentChunk {id:$cid})', cid=cid).consume()
+                    assert GraphSourceProvider(repo.driver, repo.database).verify_reference({
+                        'source_id': sid, 'record_id': cid, 'source_version': 'pdf-hash', 'locator': locator,
+                        'validation_state': 'verified'}) is True
+                    return
             session.run(f'CREATE (c:{label} {{id:$cid, source_id:$sid, source_version:"pdf-hash", locator_json:$locator, backend_key:$key}})',
                         sid=sid, cid=cid, locator=json.dumps(locator), key=repo.namespace + ':ambiguous-pdf').consume()
     provider = GraphSourceProvider(repo.driver, repo.database)

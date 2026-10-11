@@ -108,6 +108,10 @@ def validate_turn_lifecycle(state):
                 raise ValueError("Audited turn creation is invalid")
             if turn["state"] == "pending" and (not isinstance(turn.get("patch"), dict) or not turn["patch"] or type(turn.get("expected_revision")) is not int or turn["expected_revision"] < 1):
                 raise ValueError("Pending turn requires a patch and a positive base revision")
+            if "input_fingerprint" in turn and (not isinstance(turn["input_fingerprint"], str)
+                    or len(turn["input_fingerprint"]) != 64
+                    or any(character not in "0123456789abcdef" for character in turn["input_fingerprint"])):
+                raise ValueError("Turn input fingerprint must be a canonical SHA-256 digest")
         else:
             terminal = "discarded" if action == "SUGGESTION_DISCARDED" else "applied"
             extra = {"discard_request"} if terminal == "discarded" else {"fingerprint", "result"}
@@ -253,6 +257,84 @@ class Neo4jRepository:
     def write(self, operation):
         return self.write_with_transaction(lambda state, tx: operation(state))
 
+    def _materialize_lineage(self, tx, key, record):
+        """Navigation edges target existing imported nodes; snapshots remain the pins.
+
+        Never MERGE evidence nodes or assign them governance backend keys. Missing
+        imported nodes are an adapter validation concern, not grounds to invent a
+        source. Only production packs opt in, preserving synthetic/legacy writes.
+        """
+        pack = record.get("evidence_pack", {})
+        if pack.get("evidence_closure_required") is not True:
+            return
+        snapshots = pack.get("source_snapshots", [])
+        sources, entities = {}, {}
+        for snapshot in snapshots:
+            source_id, version = snapshot.get("source_id"), snapshot.get("source_version")
+            if not all(isinstance(value, str) and value.strip() for value in (source_id, version)):
+                continue
+            source = {"source_id": source_id, "source_version": version}
+            sources[canonical_json(source)] = source
+            ids = [snapshot.get(name) for name in ("record_id", "id", "fact_id", "chunk_id")]
+            for name in ("fact_ids", "chunk_ids"):
+                if isinstance(snapshot.get(name), list):
+                    ids.extend(snapshot[name])
+            for entity_id in ids:
+                if isinstance(entity_id, str) and entity_id.strip():
+                    entity = dict(source, id=entity_id)
+                    entities[canonical_json(entity)] = entity
+        # Native forecast IDs may differ from the raw source-row reference.
+        for forecast in pack.get("score_context", {}).get("forecasts", []):
+            entity_id = forecast.get("fact_id", forecast.get("id"))
+            reference = forecast.get("source_reference")
+            if not isinstance(entity_id, str) or not entity_id.strip():
+                continue
+            for snapshot in snapshots:
+                if isinstance(reference, str):
+                    matches = reference in [snapshot.get(name) for name in ("record_id", "id", "fact_id")]
+                elif isinstance(reference, dict):
+                    coordinates = {name: reference[name] for name in ("source_id", "record_id", "source_version", "locator") if name in reference}
+                    matches = bool(coordinates) and all(same_snapshot(snapshot.get(name), value) for name, value in coordinates.items())
+                else:
+                    matches = False
+                if matches and all(isinstance(snapshot.get(name), str) and snapshot[name].strip() for name in ("source_id", "source_version")):
+                    entity = {"id": entity_id, "source_id": snapshot["source_id"], "source_version": snapshot["source_version"]}
+                    entities[canonical_json(entity)] = entity
+        if sources:
+            tx.run("MATCH (v:RequirementRevision {backend_key:$key}) UNWIND $rows AS row "
+                   "MATCH (s:SourceFile {id:row.source_id}) "
+                   "WHERE coalesce(s.source_version, s.sha256)=row.source_version "
+                   "MERGE (v)-[:USES_SOURCE_FILE {source_version:row.source_version}]->(s)",
+                   key=key, rows=list(sources.values())).consume()
+        if entities:
+            for label, relation in (("SourceRecord", "USES_SOURCE_RECORD"), ("Fact", "USES_FACT"), ("DocumentChunk", "USES_DOCUMENT_CHUNK")):
+                tx.run("MATCH (v:RequirementRevision {backend_key:$key}) UNWIND $rows AS row "
+                       f"MATCH (s:{label} {{id:row.id}}) "
+                       "WHERE s.source_version=row.source_version "
+                       "AND coalesce(s.source_file_id, s.source_id)=row.source_id "
+                       f"MERGE (v)-[:{relation} {{source_version:row.source_version}}]->(s)",
+                       key=key, rows=list(entities.values())).consume()
+        signals = {}
+        references = list(record.get("finding_links", []))
+        snapshots = pack.get("signal_snapshots", [])
+        if isinstance(snapshots, list):
+            references.extend(snapshots)
+        if isinstance(pack.get("signal_snapshot"), dict):
+            references.append(pack["signal_snapshot"])
+        for reference in references:
+            if not isinstance(reference, dict):
+                continue
+            signal_id = reference.get("signal_id", reference.get("id"))
+            revision = reference.get("signal_revision", reference.get("revision"))
+            if isinstance(signal_id, str) and signal_id.strip() and type(revision) is int and revision > 0:
+                signal = {"id": signal_id, "revision": revision}
+                signals[canonical_json(signal)] = signal
+        if signals:
+            tx.run("MATCH (v:RequirementRevision {backend_key:$key}) UNWIND $rows AS row "
+                   "MATCH (s:Signal {id:row.id}) WHERE s.revision=row.revision "
+                   "MERGE (v)-[:DERIVED_FROM_SIGNAL {signal_revision:row.revision}]->(s)",
+                   key=key, rows=list(signals.values())).consume()
+
     def write_with_transaction(self, operation):
         """Callback uses only the supplied transaction; driver retries are possible."""
         def commit(tx):
@@ -273,6 +355,7 @@ class Neo4jRepository:
                 for record in revisions[len(before["revisions"].get(entity_id, [])):]:
                     tx.run("MERGE (v:RequirementRevision {backend_key:$key}) ON CREATE SET v.req_id=$id, v.revision=$revision, v.payload=$payload WITH v MATCH (r:Requirement {backend_key:$reqkey}) MERGE (r)-[:HAS_REVISION]->(v)",
                            key=f"{self.namespace}:{entity_id}:{record['revision']}", reqkey=f"{self.namespace}:{entity_id}", id=entity_id, revision=record["revision"], payload=json.dumps(record, allow_nan=False)).consume()
+                    self._materialize_lineage(tx, f"{self.namespace}:{entity_id}:{record['revision']}", record)
             for label, records in (("AuditEvent", state["events"]), ("FreezeSnapshot", state["freezes"].values()), ("RankingSnapshot", state["rankings"]), ("ReviewTurn", state["turns"].values()), ("ScoringConfig", state["configs"].values()), ("AnalysisRun", state["runs"].values()), ("ReviewThread", state["threads"].values())):
                 # Immutable collections are append-only; mutable records are keyed.
                 field = {"AuditEvent": "events", "FreezeSnapshot": "freezes", "RankingSnapshot": "rankings", "ReviewTurn": "turns", "ScoringConfig": "configs", "AnalysisRun": "runs", "ReviewThread": "threads"}[label]

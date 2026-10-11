@@ -25,6 +25,8 @@ from services.decisions import GovernanceService, DomainError, now, engine_revie
 from services.repository import Neo4jRepository, same_snapshot
 from services.audit import canonical_json
 from services.providers import UnavailableEvidenceProvider, GraphSourceProvider
+from services.role1_resolver import Role1EvidenceResolver
+from services.role1_import import Role1ImportAdapter
 from services.export import export_requirements, export_freeze, audit_bundle
 from services.scoring import calculate_score, rank_requirements
 
@@ -52,7 +54,8 @@ def create_app(repository=None, evidence_provider=None, engine=None, source_prov
                 app.state.source_provider = source_provider or GraphSourceProvider(owned, getattr(config, "NEO4J_DATABASE", None))
                 app.state.service = GovernanceService(repo, evidence_provider or UnavailableEvidenceProvider(), audit_failure)
             factory = adapter_factory
-            configured_factory = os.getenv("BACKEND_ADAPTER_FACTORY", "")
+            from config import load_settings
+            configured_factory = load_settings().backend_adapter_factory
             if factory is None and configured_factory:
                 module_name, separator, attribute = configured_factory.partition(":")
                 if not separator or not module_name or not attribute or ":" in attribute:
@@ -84,6 +87,15 @@ def create_app(repository=None, evidence_provider=None, engine=None, source_prov
                 if source_provider is not None:
                     app.state.source_provider = source_provider
                 app.state.service = GovernanceService(app.state.repository, evidence_provider if evidence_provider is not None else UnavailableEvidenceProvider(), audit_failure)
+            if isinstance(app.state.repository, Neo4jRepository):
+                repo = app.state.repository
+                if app.state.source_provider is None:
+                    app.state.source_provider = GraphSourceProvider(repo.driver, repo.database)
+                if evidence_provider is None:
+                    evidence_provider = Role1EvidenceResolver(app.state.source_provider)
+                if import_service is None:
+                    import_service = Role1ImportAdapter(repo.driver, database=repo.database)
+                app.state.service = GovernanceService(repo, evidence_provider, audit_failure)
             # Persist restart recovery rather than advertise interrupted work as running.
             def recover(state):
                 for run in state["runs"].values():
@@ -202,6 +214,17 @@ def create_app(repository=None, evidence_provider=None, engine=None, source_prov
         record["rank"] = rankings[-1]["ranks"].get(rid) if rankings else None
         return record
 
+    @router.post("/requirements", response_model=RequirementDetail)
+    def submit_requirement(body: dict):
+        """Admit an external draft; all counts, facts and citations resolve server-side."""
+        if set(body) - {"draft", "run_id", "generation_metadata"}:
+            raise DomainError(422, "Unexpected requirement submission fields")
+        if not isinstance(body.get("draft"), dict) or not isinstance(body.get("run_id"), str) or not body["run_id"].strip():
+            raise DomainError(422, "A validated draft and nonempty run_id are required")
+        result = app.state.service.create_requirement(body["draft"], body["run_id"], generation_metadata=body.get("generation_metadata"))
+        # Regeneration returns a pending proposal instead of replacing human work.
+        return get(result["id"])
+
     @router.get("/requirements/{rid}/evidence")
     def evidence(rid: str):
         record = get(rid)
@@ -304,6 +327,10 @@ def create_app(repository=None, evidence_provider=None, engine=None, source_prov
     def chunk(sid: str):
         return source_call("get", "chunk", sid)
 
+    @router.get("/facts/{sid}")
+    def fact(sid: str):
+        return source_call("get", "fact", sid)
+
     @router.get("/signals")
     def signals():
         provider = require_source_provider()
@@ -326,7 +353,7 @@ def create_app(repository=None, evidence_provider=None, engine=None, source_prov
         if set(body) - set(fields):
             raise DomainError(422, "Unexpected evidence retrieval fields")
         scope = body.get("scope", {})
-        if not isinstance(scope, dict) or set(scope) - {"regions", "derivatives", "powertrains", "signal_ids", "topics"}:
+        if not isinstance(scope, dict) or set(scope) - {"regions", "derivatives", "powertrains", "source_versions", "signal_ids", "topics"}:
             raise DomainError(422, "scope must contain only supported retrieval filters")
         validate_scope(scope)
         arguments = {"scope": scope}
@@ -418,7 +445,8 @@ def create_app(repository=None, evidence_provider=None, engine=None, source_prov
         proposed = RequirementDraft.model_validate(proposed).model_dump()
         candidate = dict(copy.deepcopy(record), **proposed, status="PM_REVIEW", approved_revision=None)
         candidate.pop("review_confirmation", None)
-        app.state.service.score(candidate, app.state.service.context(proposed))
+        resolved_context = app.state.service.context(proposed)
+        app.state.service.score(candidate, resolved_context)
         policy = candidate["score"]["policy_version"]
         baseline = data["configs"].get(policy)
         if baseline is not None and canonical_json(baseline) != canonical_json(candidate["scoring_policy"]):
@@ -436,7 +464,7 @@ def create_app(repository=None, evidence_provider=None, engine=None, source_prov
             "verified_evidence": candidate["validation_state"] == "verified" and bool([l for l in proposed["evidence_links"] if l["relation"] == "supports"]) and all(l["validation_state"] == "verified" for l in proposed["evidence_links"]),
             "strategy_citation_required": candidate["score_context"].get("strategic_fit_level") is not None and (not candidate["score_context"].get("strategy_references") or not candidate["score_context"].get("strategy_rationale", "").strip()),
         }
-        return {"mode": "preview", "base_revision": record["revision"], "ranking_id": data["rankings"][-1]["id"] if data["rankings"] else None,
+        return {"mode": "preview", "base_revision": record["revision"], "input_fingerprint": app.state.service.context_fingerprint(resolved_context), "ranking_id": data["rankings"][-1]["id"] if data["rankings"] else None,
                 "proposed_content": proposed, "old_score": record["score"], "new_score": candidate["score"], "old_evidence": record["evidence"], "new_evidence": candidate["evidence"],
                 "old_ranks": old_ranks, "new_ranks": new_ranks,
                 "rank_movement": {rid: {"before": old_ranks.get(rid), "after": new_ranks.get(rid)} for rid in old_ranks.keys() | new_ranks.keys() if old_ranks.get(rid) != new_ranks.get(rid)},
@@ -479,6 +507,8 @@ def create_app(repository=None, evidence_provider=None, engine=None, source_prov
             turn.update(coverage_gaps=result["coverage_gaps"], model_metadata=result["model_metadata"], prompt_metadata=result["prompt_metadata"])
             turn["score_preview"] = preview["new_score"] if preview else None
             turn["change_preview"] = preview
+            if preview:
+                turn["input_fingerprint"] = preview["input_fingerprint"]
             def save_review(data):
                 latest = review_entity(thread["entity_kind"], thread["entity_id"], data)
                 turn["stale"] = latest["revision"] != turn["expected_revision"]
@@ -677,7 +707,7 @@ def create_app(repository=None, evidence_provider=None, engine=None, source_prov
             json.dumps(body, allow_nan=False)
         except (ValueError, TypeError) as exc:
             raise DomainError(422, "Run scope must contain finite JSON metadata") from exc
-        for key in ("regions", "derivatives", "powertrains", "signal_ids", "topics"):
+        for key in ("regions", "derivatives", "powertrains", "source_versions", "signal_ids", "topics"):
             if key in body and (not isinstance(body[key], list) or any(not isinstance(v, str) or not v.strip() for v in body[key])):
                 raise DomainError(422, f"{key} must be a list of nonempty strings")
         if "max_drafts" in body and (type(body["max_drafts"]) is not int or not 1 <= body["max_drafts"] <= max_analysis_drafts):
@@ -763,6 +793,9 @@ def create_app(repository=None, evidence_provider=None, engine=None, source_prov
                         raise DomainError(422, "Imported signals require positive integer revisions")
                     run[key] = copy.deepcopy(snapshots)
                 run.update(result_ids=result.get("result_ids", []), failures=result.get("failures", []))
+                for key in ("counts", "import_run_id", "evidence_manifest"):
+                    if key in result:
+                        run[key] = copy.deepcopy(result[key])
                 run.update(state="partial" if run["failures"] and run["result_ids"] else "failed" if run["failures"] else "succeeded", stage="completed", progress=1)
                 data["runs"][run["id"]] = copy.deepcopy(run)
                 app.state.service.event(data, "SOURCE_IMPORTED", run["id"], None, run, ("import-service", "AI_SYSTEM"), "Configured source import completed", entity_type="ImportRun")

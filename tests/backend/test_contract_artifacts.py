@@ -10,7 +10,8 @@ from services.scoring import calculate_score
 
 
 def test_published_fixture_matches_current_models_and_policy():
-    fixture = json.loads((Path(__file__).resolve().parents[2] / "contracts/fixture_case.json").read_text())
+    from generate_contracts import build_examples
+    fixture = build_examples()
     RequirementDraft.model_validate(fixture["draft"])
     EvidencePack.model_validate(fixture["resolved_evidence_context"])
     DecisionRequest.model_validate(fixture["decision_request_example"])

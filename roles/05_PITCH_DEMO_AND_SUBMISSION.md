@@ -60,6 +60,8 @@ These are artifacts to create during implementation, not files already delivered
 
 Builders own code/tests/runtime repair. Your QA does not replace their tests, and you do not invent stronger claims to hide unfinished work.
 
+**Shared environment:** startup and delivery use [.env.example](../.env.example) and [CONFIGURATION.md](../CONFIGURATION.md). Obtain export/presentation locations and tested startup instructions from Role 3; do not create a presentation-specific env file or show credentials in screenshots. The model provider for the final demo is OpenAI.
+
 ## Four BMW Deliverable Bundles
 
 1. **Concept + prototype:** running app, explanation of customer/product-manager value, startup instructions, real heterogeneous inputs → generated requirement → PM decision.

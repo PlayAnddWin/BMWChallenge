@@ -1,6 +1,5 @@
 # Runtime pins match the locally installed integration environment.
 openai==3.28.0
-anthropic==1.13.0
 neo4j==6.4.0
 fastapi==0.143.0
 uvicorn[standard]==0.54.0
@@ -10,9 +9,12 @@ plotly==7.1.0
 pydantic==2.14.0
 python-dotenv==1.2.4
 httpx==0.28.1
-# Raw-conversion libraries; installation/live conversion requires separate validation.
+httpx2==2.13.1
+# The actual Role 1 extractor environment, including encrypted PDFs and fonts.
 openpyxl==3.1.5
-pypdf==6.1.1
+pypdf[crypto]==6.20.0
+fonttools==4.66.1
+cryptography==50.0.2
 # Acceptance checks.
 pytest==8.4.2
 PyYAML==6.0.3

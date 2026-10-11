@@ -5,7 +5,7 @@ import json
 import uuid
 from datetime import datetime, timezone
 
-from models import RequirementDraft, EvidencePack, AnalysisEngineResult
+from models import RequirementDraft, EvidencePack, AnalysisEngineResult, SourceReference
 from services.audit import append_event, canonical_json
 from services.export import audit_bundle
 from services.scoring import calculate_score, calculate_evidence, WEIGHTS, rank_requirements
@@ -67,6 +67,11 @@ def engine_review_patch(current, patch):
 
 def evidence_basis(record):
     """Compare pinned evidence and inputs using their exact JSON types."""
+    pack = record.get("evidence_pack", record)
+    if pack.get("evidence_closure_required") is True:
+        # Production inputs include signal content, mappings and source manifests
+        # outside the score/ECI projections. Preserve and compare that whole basis.
+        return canonical_json(pack)
     return canonical_json({"source_snapshots": record.get("source_snapshots", []),
         "required_assumption_ids": record.get("required_assumption_ids", []),
         "score_context": record.get("score_context"), "evidence_context": record.get("evidence_context")})
@@ -87,7 +92,7 @@ class GovernanceService:
             "before": copy.deepcopy(before), "after": copy.deepcopy(after)})
 
     def context(self, draft):
-        # Resolution and source checks are outside database/model transactions.
+        # Resolve outside the write transaction; optionally recheck pins inside it.
         try:
             # Adapters own evidence resolution, never validated content or human
             # review. Isolate both directions so retained adapter references also
@@ -109,20 +114,63 @@ class GovernanceService:
         snapshots = context.get("source_snapshots", [])
         if not isinstance(snapshots, list) or any(not isinstance(item, dict) for item in snapshots):
             raise DomainError(422, "Evidence resolver returned invalid source snapshots")
+        if "evidence_closure_required" in context and type(context["evidence_closure_required"]) is not bool:
+            raise DomainError(422, "Evidence closure flag must be boolean")
         try:
             EvidencePack.model_validate(context)
-            json.dumps(context, allow_nan=False)
+            canonical_json(context)
             calculate_score(context["score_context"])
             calculate_evidence(context["evidence_context"])
         except (ValueError, TypeError, KeyError) as exc:
             raise DomainError(422, "Evidence resolver returned invalid authoritative scoring or snapshot data") from exc
         return context
 
+    @staticmethod
+    def context_fingerprint(context):
+        """Pin the complete authoritative resolver context, including JSON types.
+
+        Resolvers normalize draft-owned assumption review_state before returning
+        context. Source/mapping review states remain authoritative pinned inputs;
+        this helper deliberately does not strip fields from the resolved context.
+        """
+        return hashlib.sha256(canonical_json(context).encode("utf-8")).hexdigest()
+
+    def assert_current(self, context, tx):
+        """An optional resolver guard runs in the repository's own write transaction.
+
+        Adapters without this capability retain their existing behavior. Isolate
+        the context just as in resolve(), and let transaction/driver errors escape
+        so managed transaction retries and rollback still work.
+        """
+        guard = getattr(self.evidence_provider, "assert_current", None)
+        if callable(guard):
+            try:
+                current = guard(copy.deepcopy(context), tx)
+            except (ValueError, TypeError) as exc:
+                raise DomainError(409, "Evidence or source inputs changed; refresh the reviewed inputs") from exc
+            if current is False:
+                raise DomainError(409, "Evidence or source inputs changed; refresh the reviewed inputs")
+
+    def guard_turn_inputs(self, turn, proposal_context, accepted_context, original):
+        required = (accepted_context.get("evidence_closure_required") is True
+                    or original.get("evidence_pack", {}).get("evidence_closure_required") is True
+                    or proposal_context is not None and proposal_context.get("evidence_closure_required") is True)
+        if "input_fingerprint" not in turn:
+            if required:
+                raise DomainError(409, "Production suggestions require pinned evidence inputs; regenerate the proposal")
+            return
+        if proposal_context is None or turn["input_fingerprint"] != self.context_fingerprint(proposal_context):
+            raise DomainError(409, "Suggestion evidence or scoring inputs changed; regenerate the proposal")
+
     def score(self, record, context, override=None):
         record["source_snapshots"] = copy.deepcopy(context.get("source_snapshots", []))
         record["required_assumption_ids"] = copy.deepcopy(context.get("required_assumption_ids", []))
         record["score_context"] = copy.deepcopy(context["score_context"])
         record["evidence_context"] = copy.deepcopy(context["evidence_context"])
+        if context.get("evidence_closure_required") is True:
+            record["evidence_pack"] = copy.deepcopy(context)
+        else:
+            record.pop("evidence_pack", None)
         record["scoring_policy"] = {"id": context["score_context"].get("policy_version", "v1"), "policy_version": context["score_context"].get("policy_version", "v1"), "weights": copy.deepcopy(context["score_context"].get("weights", WEIGHTS)), "fixed_reference_volume": context["score_context"].get("reference_volume"), "evidence_policy_version": "eci-v1"}
         record["score"] = calculate_score(context["score_context"], override=override)
         if record["score"]["policy_version"] == "v1":
@@ -163,7 +211,8 @@ class GovernanceService:
         # The engine supplies a stable semantic derivation key, never an ordinal.
         identity = {k: draft[k] for k in ("derivation_key", "signal_id", "target_scope")}
         rid = "REQ-" + hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()[:24]
-        def create(state):
+        def create(state, tx):
+            self.assert_current(context, tx)
             # Reconciliation preserves original legacy IDs. Resolve their reviewed
             # semantic identity before considering a new hashed record.
             matches = [record for record in state["requirements"].values()
@@ -182,7 +231,8 @@ class GovernanceService:
                     return current
                 tid = "regen-" + hashlib.sha256(json.dumps({"entity_id": entity_id, "base_revision": current["revision"], "draft": draft, "evidence_context": context}, sort_keys=True).encode()).hexdigest()
                 if tid not in state["turns"]:
-                    state["turns"][tid] = {"id": tid, "entity_id": entity_id, "expected_revision": current["revision"], "patch": engine_review_patch(current, {key: value for key, value in draft.items() if canonical_json(old[key]) != canonical_json(value) or (evidence_changed and key == "evidence_links")}), "state": "pending", "run_id": run_id}
+                    state["turns"][tid] = {"id": tid, "entity_id": entity_id, "expected_revision": current["revision"], "patch": engine_review_patch(current, {key: value for key, value in draft.items() if canonical_json(old[key]) != canonical_json(value) or (evidence_changed and key == "evidence_links")}), "state": "pending", "run_id": run_id,
+                        "input_fingerprint": self.context_fingerprint(context), "input_draft": copy.deepcopy(draft)}
                     if generation_metadata is not None:
                         state["turns"][tid]["generation_metadata"] = copy.deepcopy(generation_metadata)
                     self.event(state, "REGENERATION_PROPOSED", entity_id, current, state["turns"][tid], ("engine", "AI_SYSTEM"), "Regeneration requires PM application")
@@ -197,7 +247,7 @@ class GovernanceService:
             self.event(state, "REQUIREMENT_DERIVED", rid, None, record, ("engine", "AI_SYSTEM"), "Validated draft persisted with original evidence and source versions")
             self.ranking(state, ("engine", "AI_SYSTEM"), "Requirement derived")
             return record
-        return self.repository.write(create)
+        return self.repository.write_with_transaction(create)
 
     def guard(self, record, rid, request):
         if request.id is not None and request.id != rid:
@@ -253,6 +303,8 @@ class GovernanceService:
         self.event(state, action, after["id"], before, after, actor, request.rationale)
         self.ranking(state, actor, request.rationale)
         for category, fields in (("EVIDENCE_CHANGED", ("evidence_links", "evidence_context", "validation_state", "required_assumption_ids", "source_snapshots")), ("FACTORS_CHANGED", ("factor_proposals", "score_context", "scoring_policy")), ("SCORE_RECALCULATED", ("score", "evidence"))):
+            if category == "EVIDENCE_CHANGED" and ("evidence_pack" in before or "evidence_pack" in after):
+                fields = (*fields, "evidence_pack")
             old = {k: before.get(k) for k in fields}
             new = {k: after.get(k) for k in fields}
             if canonical_json(old) != canonical_json(new):
@@ -260,6 +312,7 @@ class GovernanceService:
         return after
 
     def decide_requirement(self, rid, request):
+        context = None
         if request.action == "approve":
             original = self.repository.read()["requirements"].get(rid)
             self.guard(original, rid, request)
@@ -272,7 +325,7 @@ class GovernanceService:
                 raise DomainError(422, "Current source evidence is not verified")
             if evidence_basis(context) != evidence_basis(original):
                 raise DomainError(409, "Evidence or scoring inputs changed; refresh the reviewed revision")
-        def decide(state):
+        def decide(state, tx):
             before = state["requirements"].get(rid)
             self.guard(before, rid, request)
             after = copy.deepcopy(before)
@@ -281,6 +334,9 @@ class GovernanceService:
             if (request.action == "reopen" and active) or (request.action != "reopen" and not active) or (request.action == "start_review" and before["status"] != "DRAFT"):
                 raise DomainError(422, "Invalid state transition")
             if request.action == "approve":
+                if evidence_basis(context) != evidence_basis(before):
+                    raise DomainError(409, "Evidence or scoring inputs changed; refresh the reviewed revision")
+                self.assert_current(context, tx)
                 self.approve_guard(before, request)
                 for target in after["smart"]["metrics"] + [after["smart"]["milestone"]]:
                     target["review_state"] = "reviewed"
@@ -297,7 +353,9 @@ class GovernanceService:
                 if canonical_json(before["score"]) != canonical_json(after["score"]):
                     self.event(state, "SCORE_OVERRIDDEN", rid, before["score"], after["score"], (request.actor_id, request.actor_role), request.rationale)
             return self.save(state, before, after, "STATUS_CHANGED", request)
-        return self.repository.write(decide)
+        if context is None:
+            return self.repository.write(lambda state: decide(state, None))
+        return self.repository.write_with_transaction(decide)
 
     def edit_requirement(self, rid, request, apply=False):
         preflight = self.repository.read()
@@ -322,9 +380,33 @@ class GovernanceService:
         proposed = RequirementDraft.model_validate(proposed).model_dump()
         if apply:
             proposed = engine_review_patch(original, proposed)
-        context = self.context(proposed)
+        proposal_context = None
+        if apply:
+            prior = preflight["turns"].get(request.turn_id)
+            self.guard_pending_turn(prior, rid, request)
+            if "input_fingerprint" in prior:
+                # Resolve the stored proposal, not the PM's accepted subset or
+                # modifications. They may intentionally change factors or scope.
+                # Regeneration pins its original normalized engine draft; chat
+                # turns can reconstruct theirs from the immutable base + patch.
+                input_draft = prior.get("input_draft")
+                if input_draft is None:
+                    input_draft = {k: copy.deepcopy(original[k]) for k in RequirementDraft.model_fields}
+                    input_draft.update(copy.deepcopy(prior["patch"]))
+                    input_draft = engine_review_patch(original, RequirementDraft.model_validate(input_draft).model_dump())
+                else:
+                    input_draft = RequirementDraft.model_validate(input_draft).model_dump()
+                proposal_context = self.context(input_draft)
+                if canonical_json(input_draft) == canonical_json(proposed):
+                    context = proposal_context
+                else:
+                    context = self.context(proposed)
+            else:
+                context = self.context(proposed)
+        else:
+            context = self.context(proposed)
         fingerprint = hashlib.sha256(json.dumps(request.model_dump(), sort_keys=True).encode()).hexdigest()
-        def edit(state):
+        def edit(state, tx):
             turn = state["turns"].get(request.turn_id) if apply else None
             if apply:
                 if not turn or turn["entity_id"] != rid:
@@ -333,12 +415,14 @@ class GovernanceService:
                     if turn["fingerprint"] != fingerprint:
                         raise DomainError(409, "Conflicting suggestion retry")
                     return turn["result"]
-                if turn["state"] != "pending" or turn["expected_revision"] != request.expected_revision:
-                    raise DomainError(409, "Suggestion is stale or unavailable")
-                if not set(request.patch) <= set(turn.get("patch") or {}):
-                    raise DomainError(422, "Accepted patch must edit fields in the stored proposal")
+                self.guard_pending_turn(turn, rid, request)
             before = state["requirements"].get(rid)
             self.guard(before, rid, request)
+            if apply:
+                self.guard_turn_inputs(turn, proposal_context, context, before)
+                if proposal_context is not None and self.context_fingerprint(proposal_context) != self.context_fingerprint(context):
+                    self.assert_current(proposal_context, tx)
+            self.assert_current(context, tx)
             after = copy.deepcopy(before)
             identity = {key: proposed[key] for key in ("derivation_key", "signal_id", "target_scope")}
             if any(other_id != rid and canonical_json({key: record.get(key) for key in identity}) == canonical_json(identity)
@@ -364,7 +448,15 @@ class GovernanceService:
                            (request.actor_id, request.actor_role), request.rationale, entity_type="ReviewTurn")
             return result
         # Idempotent retries must bypass stale preflight, resolved above separately.
-        return self.repository.write(edit)
+        return self.repository.write_with_transaction(edit)
+
+    def guard_pending_turn(self, turn, rid, request):
+        if not turn or turn["entity_id"] != rid:
+            raise DomainError(404, "Suggestion not found")
+        if turn["state"] != "pending" or turn["expected_revision"] != request.expected_revision:
+            raise DomainError(409, "Suggestion is stale or unavailable")
+        if not set(request.patch) <= set(turn.get("patch") or {}):
+            raise DomainError(422, "Accepted patch must edit fields in the stored proposal")
 
     def guard_identity(self, rid, request):
         if request.id is not None and request.id != rid:
@@ -372,10 +464,136 @@ class GovernanceService:
         if request.actor_role != "PM_USER" or request.actor_id.upper() == "AI_SYSTEM":
             raise DomainError(422, "A named human PM must authorize this mutation")
 
+    def freeze_context_guard(self, record, context):
+        """Production freezes close over all inputs, not just displayed citations.
+
+        Source snapshots carry source_id/record_id/source_version/locator and a
+        nonempty raw_payload. Reference IDs can also name their fact_id/chunk_id
+        (or fact_ids/chunk_ids). Signal snapshots pin full content and revisions;
+        both a singular signal_snapshot and a signal_snapshots list are supported.
+        """
+        snapshots = context.get("source_snapshots", [])
+        fields = ("source_id", "record_id", "source_version", "locator")
+        for link in record["evidence_links"]:
+            if not any(canonical_json({k: snapshot.get(k) for k in fields}) == canonical_json({k: link[k] for k in fields}) and bool(snapshot.get("raw_payload")) for snapshot in snapshots):
+                raise DomainError(422, "Freeze requires complete pinned source snapshots for every evidence link")
+        if context.get("evidence_closure_required") is not True:
+            return
+
+        pins, identifiers = {}, {}
+        for snapshot in snapshots:
+            try:
+                SourceReference.model_validate(dict({k: snapshot.get(k) for k in fields},
+                    claim_key="freeze-input", relation="context", validation_state="verified"))
+            except (ValueError, TypeError) as exc:
+                raise DomainError(422, "Freeze requires complete pinned source snapshots for every authoritative input") from exc
+            if not isinstance(snapshot.get("raw_payload"), dict) or not snapshot["raw_payload"]:
+                raise DomainError(422, "Freeze requires complete pinned source snapshots for every authoritative input")
+            key = canonical_json({k: snapshot[k] for k in fields})
+            if key in pins and canonical_json(pins[key]["raw_payload"]) != canonical_json(snapshot["raw_payload"]):
+                raise DomainError(422, "Freeze source snapshots have conflicting pinned payloads")
+            pins[key] = snapshot
+            ids = [snapshot.get(k) for k in ("record_id", "id", "fact_id", "chunk_id")]
+            for name in ("fact_ids", "chunk_ids"):
+                values = snapshot.get(name, [])
+                if not isinstance(values, list) or any(not isinstance(value, str) or not value.strip() for value in values):
+                    raise DomainError(422, "Freeze snapshot reference IDs must be nonblank identifiers")
+                ids.extend(values)
+            for identifier in ids:
+                if isinstance(identifier, str) and identifier.strip():
+                    identifiers.setdefault(identifier, set()).add(key)
+
+        def pin_reference(reference):
+            if isinstance(reference, list):
+                for item in reference:
+                    pin_reference(item)
+                return
+            if isinstance(reference, str):
+                matches = identifiers.get(reference, set())
+            elif isinstance(reference, dict):
+                aliases = {"source_file_id": "source_id", "source_record_id": "record_id", "source_locator": "locator"}
+                normalized = {aliases.get(k, k): value for k, value in reference.items()}
+                tokens = [normalized[k] for k in ("id", "fact_id", "chunk_id") if k in normalized]
+                coordinates = {k: normalized[k] for k in fields if k in normalized}
+                if not tokens and not coordinates:
+                    # A factor-to-reference collection is also a useful adapter shape.
+                    for value in reference.values():
+                        pin_reference(value)
+                    return
+                located = "record_id" in coordinates or "source_id" in coordinates and "locator" in coordinates
+                matches = {key for key, snapshot in pins.items()
+                           if (located or tokens)
+                           and all(canonical_json(snapshot[k]) == canonical_json(value) for k, value in coordinates.items())
+                           and all(isinstance(token, str) and key in identifiers.get(token, set()) for token in tokens)}
+            else:
+                matches = set()
+            if len(matches) != 1:
+                raise DomainError(422, "Freeze requires an unambiguous pinned source snapshot for every factor and forecast reference")
+
+        signals = context.get("signal_snapshots", [])
+        if not isinstance(signals, list):
+            raise DomainError(422, "Freeze requires pinned signal snapshots")
+        signals = list(signals)
+        if context.get("signal_snapshot") is not None:
+            signals.append(context["signal_snapshot"])
+        signal_pins = {}
+        identity_fields = {"id", "signal_id", "revision", "signal_revision"}
+        for signal in signals:
+            if not isinstance(signal, dict):
+                raise DomainError(422, "Freeze requires pinned signal snapshots")
+            signal_id = signal.get("signal_id", signal.get("id"))
+            revision = signal.get("signal_revision", signal.get("revision"))
+            payload = signal.get("raw_payload", signal.get("payload", signal))
+            if (not isinstance(signal_id, str) or not signal_id.strip()
+                    or type(revision) is not int or revision < 1
+                    or not isinstance(payload, dict) or not set(payload) - identity_fields):
+                raise DomainError(422, "Freeze requires full pinned signal content and revisions")
+            key = (signal_id, revision)
+            if key in signal_pins and canonical_json(signal_pins[key]) != canonical_json(signal):
+                raise DomainError(422, "Freeze signal snapshots have conflicting pinned payloads")
+            signal_pins[key] = signal
+
+        def pin_signals(references):
+            if not isinstance(references, list):
+                raise DomainError(422, "Freeze requires pinned signal references")
+            for reference in references:
+                if not isinstance(reference, dict):
+                    raise DomainError(422, "Freeze requires pinned signal references")
+                signal_id = reference.get("signal_id", reference.get("id"))
+                revision = reference.get("revision", reference.get("signal_revision"))
+                if not isinstance(signal_id, str) or type(revision) is not int or (signal_id, revision) not in signal_pins:
+                    raise DomainError(422, "Freeze requires pinned snapshots for every used signal revision")
+
+        def check_references(value):
+            if isinstance(value, dict):
+                for name, item in value.items():
+                    if name in {"source_snapshots", "raw_payload", "locator", "source_locator"}:
+                        continue
+                    if name in {"finding_links", "signal_references"}:
+                        pin_signals(item)
+                    elif name in {"source_reference", "evidence_links", "references"} or name.endswith("_references"):
+                        pin_reference(item)
+                    else:
+                        check_references(item)
+            elif isinstance(value, list):
+                for item in value:
+                    check_references(item)
+
+        pin_signals(record["finding_links"])
+        check_references(context)
+        for signal in signals:
+            check_references(signal.get("raw_payload", signal.get("payload", signal)))
+        check_references(record["score"]["factors"])
+        for forecast in context["score_context"].get("forecasts", []):
+            if "source_reference" not in forecast:
+                raise DomainError(422, "Freeze requires pinned sources for every forecast")
+            pin_reference(forecast["source_reference"])
+
     def freeze(self, request):
         if request.actor_id.upper() == "AI_SYSTEM":
             raise DomainError(422, "A named human PM must authorize freeze")
         preflight = self.repository.read()
+        contexts = {}
         for rid, revision in request.selections.items():
             record = preflight["requirements"].get(rid)
             if not record or record["revision"] != revision or record["status"] != "APPROVED":
@@ -383,11 +601,9 @@ class GovernanceService:
             context = self.context({k: record[k] for k in RequirementDraft.model_fields})
             if not context.get("verified") or evidence_basis(context) != evidence_basis(record):
                 raise DomainError(409, "Evidence changed since approval; refresh and review")
-            snapshots = context.get("source_snapshots", [])
-            for link in record["evidence_links"]:
-                if not any(canonical_json({k: snapshot.get(k) for k in ("source_id", "record_id", "source_version", "locator")}) == canonical_json({k: link[k] for k in ("source_id", "record_id", "source_version", "locator")}) and bool(snapshot.get("raw_payload")) for snapshot in snapshots):
-                    raise DomainError(422, "Freeze requires complete pinned source snapshots for every evidence link")
-        def freeze(state):
+            self.freeze_context_guard(record, context)
+            contexts[rid] = context
+        def freeze(state, tx):
             ranking = state["rankings"][-1] if state["rankings"] else None
             if not ranking or ranking["id"] != request.expected_ranking_id:
                 raise DomainError(409, "Stale ranking baseline")
@@ -398,6 +614,9 @@ class GovernanceService:
                     raise DomainError(409, "Freeze requires current approved revisions")
                 if ranking["revisions"].get(rid) != revision:
                     raise DomainError(409, "Approved revision is outside the ranking baseline")
+                if evidence_basis(contexts[rid]) != evidence_basis(record):
+                    raise DomainError(409, "Evidence changed since approval; refresh and review")
+                self.assert_current(contexts[rid], tx)
                 records.append(copy.deepcopy(record))
             snapshot = {"id": str(uuid.uuid4()), "timestamp": now(), "actor_id": request.actor_id, "rationale": request.rationale, "requirements": records, "ranking": copy.deepcopy(ranking), "configurations": copy.deepcopy(state.get("configs", {})), "scoring_policies": {r["id"]: copy.deepcopy(r.get("scoring_policy", {})) for r in records}, "source_snapshots": [copy.deepcopy(source) for r in records for source in r.get("source_snapshots", [])]}
             self.event(state, "FREEZE_CREATED", snapshot["id"], None, snapshot, (request.actor_id, request.actor_role), request.rationale)
@@ -405,7 +624,7 @@ class GovernanceService:
             snapshot["audit"] = audit_bundle(state, snapshot["checkpoint"])
             state["freezes"][snapshot["id"]] = snapshot
             return snapshot
-        return self.repository.write(freeze)
+        return self.repository.write_with_transaction(freeze)
 
     def import_legacy(self, records, actor_id="legacy-import", rationale="Preserve unresolved historical proposals"):
         """Import without claiming validated evidence, conversion, or PM approval.

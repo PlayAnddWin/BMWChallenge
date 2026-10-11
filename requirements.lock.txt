@@ -1,18 +1,20 @@
-# Python 3.12 acceptance constraints for macOS and Linux ARM64.
+# Shared application/data constraints; verified on Linux Python 3.14.
 # Linux adds Streamlit's watchdog dependency; platform markers select actual installs.
 altair==6.3.0
 annotated-doc==0.0.5
 annotated-types==0.8.0
-anthropic==1.13.0
 anyio==4.15.1
 attrs==26.1.0
 certifi==2026.7.22
 charset-normalizer==3.5.2
 click==8.5.0
 coverage==7.16.2
+cryptography==50.0.2
+cffi==2.1.1
 docstring-parser==0.18.0
 et-xmlfile==2.0.0
 fastapi==0.143.0
+fonttools==4.66.1
 h11==0.16.0
 httpcore==1.0.9
 httpcore2==2.13.1
@@ -44,7 +46,8 @@ pydantic==2.14.0
 pydantic-core==2.50.0
 pydeck==0.9.3
 pygments==2.21.0
-pypdf==6.1.1
+pypdf==6.20.0
+pycparser==3.11
 pytest==8.4.2
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.4
