@@ -1,0 +1,1 @@
+how can i run all the tests in the tests folder, just give me the command
