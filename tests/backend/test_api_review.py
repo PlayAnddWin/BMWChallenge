@@ -506,7 +506,7 @@ def test_partial_source_provider_missing_capabilities_return_503(endpoint):
 
 def test_real_graph_lifespan_http_and_injected_driver_ownership(graph_backend, monkeypatch):
     import uuid
-    from services.providers import GraphSourceProvider
+    from services.providers import Role01SourceProvider
     repo, _, _ = graph_backend
     import config
     monkeypatch.setattr(config, 'NEO4J_DATABASE', repo.database)
@@ -522,11 +522,12 @@ def test_real_graph_lifespan_http_and_injected_driver_ownership(graph_backend, m
     driver = CallerDriver()
     try:
         with TestClient(create_app(driver=driver, namespace=namespace)) as client:
-            assert isinstance(client.app.state.source_provider, GraphSourceProvider)
+            assert isinstance(client.app.state.source_provider, Role01SourceProvider)
             assert client.get('/api/health').status_code == 200
             assert client.get('/api/requirements').json()['total'] == 0
             assert client.get('/api/requirements/export').status_code == 200
-            assert client.get('/api/sources').status_code == 200
+            # This isolated synthetic ledger has no Role 01 corpus imported.
+            assert client.get('/api/sources').status_code == 409
         assert driver.closed is False
     finally:
         with repo.session() as session:

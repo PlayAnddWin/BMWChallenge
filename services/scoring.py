@@ -128,7 +128,7 @@ def calculate_score(context: dict, override=None) -> dict:
                 "range": {"lower": calculated, "upper": calculated, "kind": "legacy_arithmetic"}}
     if policy != "v1":
         raise ValueError("unsupported score policy")
-    _flags(context, ("severity_provisional", "study_only"))
+    _flags(context, ("severity_provisional", "study_only", "reach_provisional"))
     customer_references = _references(context.get("customer_references"), "customer_references")
     strategy_references = _references(context.get("strategy_references"), "strategy_references")
     weights = context.get("weights", WEIGHTS)
@@ -232,6 +232,10 @@ def calculate_score(context: dict, override=None) -> dict:
         reach["reference_volume"] = reference
         if any(item[0] == 0 for item in unique.values()):
             warnings.append("Target includes an explicit zero-volume forecast")
+    if context.get("reach_provisional"):
+        reach["provisional"] = True
+        reach["lower"] = 0
+        reach["reason"] = "Explicit whole-line proxy; no derivative, powertrain or successor volume split is supplied"
     strategy = context.get("strategic_fit_level")
     complexity = context.get("complexity_level")
     factors = {"customer": customer, "reach": reach,

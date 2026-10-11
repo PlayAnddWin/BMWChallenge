@@ -17,13 +17,15 @@ Use [the plan](../IMPLEMENTATION_PLAN.md) and [Role 3's API responsibilities](03
 
 Role 3 owns config/compose/API and publishes example responses. Request API changes with a payload example; do not patch Neo4j or shared backend files to make the UI work.
 
+**Shared environment:** use [.env.example](../.env.example) and [CONFIGURATION.md](../CONFIGURATION.md). Consume `API_BASE_URL` through the shared reader/client; do not declare another API URL or dotenv file. Native `STREAMLIT_SERVER_ADDRESS`/`STREAMLIT_SERVER_PORT` are forwarded before CLI startup by Role 3's launcher/Compose. Frontend does not require or receive the OpenAI key.
+
 ## Branch Repairs Assigned to This Role
 
 Task IDs match the plan; backend validation remains Role 3's responsibility.
 
 | Task | Priority / ownership | Observed behavior at `3bd0251` | Implementation and acceptance proof |
 | :--- | :--- | :--- | :--- |
-| **R09** | P0, lead with Role 3 | `08_streamlit_ui.py:26` uses localhost and ignores the supplied container host. | Configured API_BASE_URL, local/container client test and live Compose request; container UI reaches api:8000 instead of itself. |
+| **R09** | P0, lead with Role 3 | `08_streamlit_ui.py:26` uses localhost and ignores the supplied container host. | Configured API_BASE_URL, local/container client test and live Compose request; container UI reaches the api service on canonical API_PORT instead of itself. |
 | **R01/R03** | P0, frontend integration | Decision UI permits unreviewed approval; override 0 means disabled; guard errors are not integrated. | Collect revision/rationale/target/assumption confirmations, show server-allowed actions, explicit override enable toggle and policy scale. Failed decision stays unapproved; explicit zero sends 0 rather than null. |
 | **R16** | P1, label/rendering support | Explainability calls arbitrary impact perturbations a confidence interval. | Render backend range kind/assumptions as sensitivity/provisional bounds; never label it statistical confidence. |
 | **R17** | P1, visibility support for Role 2 | Legacy export has zero WEAK/RED records despite an honesty-focused dashboard. | Show an actual engine-returned evidence-gap proposal and its source/target limitations; do not fabricate a weak case or hide it through default filters. |

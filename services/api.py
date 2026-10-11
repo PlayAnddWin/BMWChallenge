@@ -24,8 +24,8 @@ from models import DecisionRequest, EditRequest, ApplyRequest, FreezeRequest, Mu
 from services.decisions import GovernanceService, DomainError, now, engine_review_patch
 from services.repository import Neo4jRepository, same_snapshot
 from services.audit import canonical_json
-from services.providers import UnavailableEvidenceProvider, GraphSourceProvider
-from services.export import export_requirements, export_freeze, audit_bundle
+from services.providers import UnavailableEvidenceProvider, Role01SourceProvider
+from services.export import export_requirements, export_freeze, audit_bundle, requirements_with_history
 from services.scoring import calculate_score, rank_requirements
 
 
@@ -49,7 +49,7 @@ def create_app(repository=None, evidence_provider=None, engine=None, source_prov
                 repo = Neo4jRepository(owned, database=getattr(config, "NEO4J_DATABASE", None), namespace=namespace)
                 repo.initialize()
                 app.state.repository = repo
-                app.state.source_provider = source_provider or GraphSourceProvider(owned, getattr(config, "NEO4J_DATABASE", None))
+                app.state.source_provider = source_provider or Role01SourceProvider(owned, getattr(config, "NEO4J_DATABASE", None))
                 app.state.service = GovernanceService(repo, evidence_provider or UnavailableEvidenceProvider(), audit_failure)
             factory = adapter_factory
             configured_factory = os.getenv("BACKEND_ADAPTER_FACTORY", "")
@@ -158,7 +158,7 @@ def create_app(repository=None, evidence_provider=None, engine=None, source_prov
 
     @router.get("/requirements/export")
     def requirements_export(format: str = Query("json", pattern="^(json|csv)$")):
-        return Response(export_requirements(state()["requirements"].values(), format), media_type="application/json" if format == "json" else "text/csv", headers={"Content-Disposition": f'attachment; filename="requirements.{format}"'})
+        return Response(export_requirements(requirements_with_history(state()), format), media_type="application/json" if format == "json" else "text/csv", headers={"Content-Disposition": f'attachment; filename="requirements.{format}"'})
 
     @router.get("/requirements")
     def list_requirements(status: str | None = None, derivative: str | None = None, model: str | None = None, region: str | None = None, powertrain: str | None = None, evidence_level: str | None = None, search: str | None = None, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0)):
@@ -762,6 +762,10 @@ def create_app(repository=None, evidence_provider=None, engine=None, source_prov
                     if key == "signals" and any(type(snapshot.get("revision")) is not int or snapshot["revision"] < 1 for snapshot in snapshots):
                         raise DomainError(422, "Imported signals require positive integer revisions")
                     run[key] = copy.deepcopy(snapshots)
+                metadata = {key: copy.deepcopy(value) for key, value in result.items()
+                            if key not in {"sources", "signals", "result_ids", "failures"}}
+                if metadata:
+                    run["import_metadata"] = metadata
                 run.update(result_ids=result.get("result_ids", []), failures=result.get("failures", []))
                 run.update(state="partial" if run["failures"] and run["result_ids"] else "failed" if run["failures"] else "succeeded", stage="completed", progress=1)
                 data["runs"][run["id"]] = copy.deepcopy(run)
@@ -777,6 +781,7 @@ def create_app(repository=None, evidence_provider=None, engine=None, source_prov
             run.update(state="failed", stage="failed", failures=[str(exc)], result_ids=[])
             run.pop("sources", None)
             run.pop("signals", None)
+            run.pop("import_metadata", None)
             app.state.repository.write(lambda data: data["runs"].update({run["id"]: copy.deepcopy(run)}))
         finally:
             run_lock.release()

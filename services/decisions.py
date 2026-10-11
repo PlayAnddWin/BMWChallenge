@@ -88,6 +88,10 @@ class GovernanceService:
 
     def context(self, draft):
         # Resolution and source checks are outside database/model transactions.
+        from services.real_evidence import RealEvidenceResolver
+        from services.evidence_transaction import generation
+        transactional = isinstance(self.evidence_provider, RealEvidenceResolver)
+        source_generation = generation(self.evidence_provider) if transactional else None
         try:
             # Adapters own evidence resolution, never validated content or human
             # review. Isolate both directions so retained adapter references also
@@ -99,6 +103,10 @@ class GovernanceService:
             raise DomainError(422, "Evidence resolver rejected the draft") from exc
         except Exception as exc:
             raise DomainError(503, "Evidence resolver is unavailable") from exc
+        if transactional:
+            if generation(self.evidence_provider) != source_generation:
+                raise DomainError(409, "Source corpus changed during evidence resolution")
+            context["_source_generation"] = source_generation
         if not isinstance(context, dict) or context.get("traceable") is not True:
             raise DomainError(422, "Evidence must resolve to original source versions")
         if not isinstance(context.get("score_context"), dict) or not isinstance(context.get("evidence_context"), dict) or not isinstance(context.get("verified"), bool):
@@ -118,12 +126,26 @@ class GovernanceService:
             raise DomainError(422, "Evidence resolver returned invalid authoritative scoring or snapshot data") from exc
         return context
 
+    def write_with_evidence(self, operation, contexts):
+        from services.real_evidence import RealEvidenceResolver
+        from services.evidence_transaction import validate_context
+        if not isinstance(self.evidence_provider, RealEvidenceResolver):
+            return self.repository.write(operation)
+        originals = self.evidence_provider.sources._originals() if contexts else None
+        def commit(state, tx):
+            for context in contexts:
+                validate_context(self.evidence_provider, tx, context, originals)
+            return operation(state)
+        return self.repository.write_with_transaction(commit)
+
     def score(self, record, context, override=None):
         record["source_snapshots"] = copy.deepcopy(context.get("source_snapshots", []))
         record["required_assumption_ids"] = copy.deepcopy(context.get("required_assumption_ids", []))
         record["score_context"] = copy.deepcopy(context["score_context"])
         record["evidence_context"] = copy.deepcopy(context["evidence_context"])
         record["scoring_policy"] = {"id": context["score_context"].get("policy_version", "v1"), "policy_version": context["score_context"].get("policy_version", "v1"), "weights": copy.deepcopy(context["score_context"].get("weights", WEIGHTS)), "fixed_reference_volume": context["score_context"].get("reference_volume"), "evidence_policy_version": "eci-v1"}
+        if context["score_context"].get("reference_baseline") is not None:
+            record["scoring_policy"]["reference_baseline"] = copy.deepcopy(context["score_context"]["reference_baseline"])
         record["score"] = calculate_score(context["score_context"], override=override)
         if record["score"]["policy_version"] == "v1":
             record["scoring_policy"]["weights"] = {name: factor["weight"] for name, factor in record["score"]["factors"].items()}
@@ -197,7 +219,7 @@ class GovernanceService:
             self.event(state, "REQUIREMENT_DERIVED", rid, None, record, ("engine", "AI_SYSTEM"), "Validated draft persisted with original evidence and source versions")
             self.ranking(state, ("engine", "AI_SYSTEM"), "Requirement derived")
             return record
-        return self.repository.write(create)
+        return self.write_with_evidence(create, [context])
 
     def guard(self, record, rid, request):
         if request.id is not None and request.id != rid:
@@ -297,7 +319,7 @@ class GovernanceService:
                 if canonical_json(before["score"]) != canonical_json(after["score"]):
                     self.event(state, "SCORE_OVERRIDDEN", rid, before["score"], after["score"], (request.actor_id, request.actor_role), request.rationale)
             return self.save(state, before, after, "STATUS_CHANGED", request)
-        return self.repository.write(decide)
+        return self.write_with_evidence(decide, [context] if request.action == "approve" else [])
 
     def edit_requirement(self, rid, request, apply=False):
         preflight = self.repository.read()
@@ -364,7 +386,7 @@ class GovernanceService:
                            (request.actor_id, request.actor_role), request.rationale, entity_type="ReviewTurn")
             return result
         # Idempotent retries must bypass stale preflight, resolved above separately.
-        return self.repository.write(edit)
+        return self.write_with_evidence(edit, [context])
 
     def guard_identity(self, rid, request):
         if request.id is not None and request.id != rid:
@@ -376,6 +398,7 @@ class GovernanceService:
         if request.actor_id.upper() == "AI_SYSTEM":
             raise DomainError(422, "A named human PM must authorize freeze")
         preflight = self.repository.read()
+        contexts = []
         for rid, revision in request.selections.items():
             record = preflight["requirements"].get(rid)
             if not record or record["revision"] != revision or record["status"] != "APPROVED":
@@ -383,6 +406,7 @@ class GovernanceService:
             context = self.context({k: record[k] for k in RequirementDraft.model_fields})
             if not context.get("verified") or evidence_basis(context) != evidence_basis(record):
                 raise DomainError(409, "Evidence changed since approval; refresh and review")
+            contexts.append(context)
             snapshots = context.get("source_snapshots", [])
             for link in record["evidence_links"]:
                 if not any(canonical_json({k: snapshot.get(k) for k in ("source_id", "record_id", "source_version", "locator")}) == canonical_json({k: link[k] for k in ("source_id", "record_id", "source_version", "locator")}) and bool(snapshot.get("raw_payload")) for snapshot in snapshots):
@@ -405,7 +429,7 @@ class GovernanceService:
             snapshot["audit"] = audit_bundle(state, snapshot["checkpoint"])
             state["freezes"][snapshot["id"]] = snapshot
             return snapshot
-        return self.repository.write(freeze)
+        return self.write_with_evidence(freeze, contexts)
 
     def import_legacy(self, records, actor_id="legacy-import", rationale="Preserve unresolved historical proposals"):
         """Import without claiming validated evidence, conversion, or PM approval.

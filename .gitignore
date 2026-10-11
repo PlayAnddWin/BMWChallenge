@@ -1,19 +1,23 @@
 .DS_Store
-BMW-Data
-BMW-Data/
+# Local source datasets; keep out of commits.
+/BMW-Data/
 .venv/
 scratch/
 
+# Private runtime configuration; keep the shared template tracked.
 .env
-__pycache__/
-pipeline/__pycache__/
 .env.*
 !.env.example
+
+# Derived BMW evidence, model caches, exports, and local artifacts.
 var/
-output/
-data/
 BMW-Processed/
+output/
+__pycache__/
 .pytest_cache/
+
+# Backend local data and test artifacts.
+data/
 *.pyc
 .coverage*
 htmlcov/

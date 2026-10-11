@@ -18,6 +18,8 @@ Use [the implementation plan](../IMPLEMENTATION_PLAN.md) with the repair instruc
 
 Own authoritative Requirement/RequirementRevision, scoring config/ranking snapshot, audit and freeze nodes. Roles 1/2 supply their node/DTO definitions and service interfaces. Role 4 owns Streamlit and all UI/client code.
 
+**Shared configuration ownership:** maintain root [.env.example](../.env.example), [CONFIGURATION.md](../CONFIGURATION.md), and the single `config.py` reader. Load root dotenv with process precedence, validate types and resolve paths from the repository root. Wire every declared setting to its consumer; runtime defaults/names must not be copied into team modules. OpenAI is the only LLM provider. Forward API keys only to backend/model processes, and native Streamlit variables before CLI startup.
+
 ## Branch Repair Backlog — P0 First
 
 Task IDs match the plan. Keep this priority ordering when delegating backend work.
@@ -28,8 +30,8 @@ Task IDs match the plan. Keep this priority ordering when delegating backend wor
 | **R02** | P0, lead | Separate auto-commit writes leave status applied when audit fails. | One `session.execute_write` callback for revision/state/score/rank/turn/audit. Inject failure and inspect real graph: all related changes roll back. |
 | **R03** | P0, lead | Override 999 is accepted; history writes score_before=None. | Finite/ranged override by score-policy version, actual before/after and effective/calculated values. Reject invalid values; a valid zero override is distinct from disabled override. |
 | **R04** | P0, lead with Role 2 | Step 06 resets ordinal IDs and overwrites content/status. | Stable derivation identity, immutable revisions, pending regenerated diff. Changed batch order/rerun leaves approved/rejected decisions and previous content intact. |
-| **R10** | P0, lead | Runner demands Anthropic despite primary OpenAI; Compose omits OpenAI variables. | Validate either configured provider, forward key/model configuration and document startup. OpenAI-only and Anthropic-only test configurations pass; neither produces truthful error. |
-| **R09** | P0, support Role 4 | UI container calls its own localhost. | Supply API_BASE_URL=http://api:8000 in Compose; validate actual UI → API networking with Role 4. |
+| **R10** | P0, lead | Runner demands Anthropic despite primary OpenAI; Compose omits OpenAI variables. | Use canonical OpenAI-only config, forward OPENAI_API_KEY/OPENAI_MODEL and remove Anthropic prerequisite/fallback. Valid OpenAI configuration works; missing key is explicit without selecting another provider. |
+| **R09** | P0, support Role 4 | UI container calls its own localhost. | Supply API_BASE_URL=http://api:${API_PORT} from canonical Compose settings; validate actual UI → API networking with Role 4. |
 | **R11** | P1, lead using Role 1 | Max hard-coded 2025 market reach and zeroed RoW ignore requested scope. | Source-linked 2030 forecasts, unique G60_G68 keys, fixed reference and proxy notes; scoped fixture reproduces source values. |
 | **R12** | P1, lead with Roles 1/2 | Count-based STRONG=1.0 and assumed channel bias miss reliability/coverage. | Versioned ECI inputs for issue support, coverage, corroboration, review and explicit concentration gaps; no probability or unsupported channel-semantics claim. |
 | **R13/R15** | P1, policy/review support | Study opposition can inflate strength; model SMART=true is treated as validation. | Consume reviewed mappings and require source/target/assumption review before approval. Keyword match or self-checked SMART cannot satisfy these guards. |
@@ -129,7 +131,8 @@ Must pass:
 - Golden scoring/ECI, unknown ranges, stable ties and scoped forecast deduplication.
 - Altered/deleted/reordered events fail against the checkpoint; creation and evidence changes reconstruct.
 - More than 200 records export completely with all required fields; freeze rejects stale/unapproved state and remains unchanged after edit.
-- Missing provider yields truthful error/cache mode; OpenAI-only startup works; driver closes cleanly.
+- Missing OPENAI_API_KEY yields truthful unavailable/cache mode; OpenAI-only startup works without Anthropic credentials; driver closes cleanly.
+- Canonical env keys are loaded only through root config, process overrides win, relative paths are cwd-independent, and native Streamlit settings apply before startup.
 - Wrong route/body ID and unverified legacy evidence fail without writes; negative/out-of-range/non-finite model factors fail at the validated draft boundary.
 - Legacy 0–10 arithmetic remains reproducible and labeled; v1 0–100 conversion is recomputed from source inputs rather than relabeling the old numbers.
 

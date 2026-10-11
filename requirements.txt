@@ -12,7 +12,7 @@ python-dotenv==1.2.4
 httpx==0.28.1
 # Raw-conversion libraries; installation/live conversion requires separate validation.
 openpyxl==3.1.5
-pypdf==6.1.1
+pypdf[crypto]==6.1.1
 # Acceptance checks.
 pytest==8.4.2
 PyYAML==6.0.3
