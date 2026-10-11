@@ -34,7 +34,7 @@ from ui.client import (ACTION_LABELS, STATUS_LABELS, ApiClient, ApiError, fill_p
 from ui.forms import build_patch, draft_key, is_v1, patch_diff, submit_decision  # noqa: E402
 from ui.theme import css  # noqa: E402
 
-st.set_page_config(page_title="ConceptCraft · Requirement Workbench", page_icon="◆", layout="wide",
+st.set_page_config(page_title="66Days · Requirement Workbench", page_icon="◆", layout="wide",
                    initial_sidebar_state="expanded")
 st.markdown(css(), unsafe_allow_html=True)
 
@@ -339,7 +339,7 @@ NAV_ICONS = {"Overview": "space_dashboard", "Requirements": "checklist", "Source
 def sidebar(client):
     with st.sidebar:
         html('<div class="cc-nav-brand"><div class="cc-nav-mark" aria-hidden="true">◆</div>'
-             '<div><div class="cc-nav-name">ConceptCraft</div>'
+             '<div><div class="cc-nav-name">66Days</div>'
              '<div class="cc-nav-tag">Requirement workbench</div></div></div>'
              '<div class="cc-nav-label">Workspace</div>')
         st.radio("Navigate", list(NAV_ICONS), key="page", label_visibility="collapsed",
