@@ -3,15 +3,44 @@
   "checkpoint_id": "01M4MAX6D555EREMYHT5FV75SR",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 2,
+  "checkpoints_count": 3,
   "files_touched": [
     "AI_ENGINE_BRANCH_REVIEW.md",
+    "CHALLENGE_SPECIFICATION.md",
+    "CONFIGURATION.md",
+    "Dockerfile",
     "IMPLEMENTATION_PLAN.md",
+    "README.md",
+    "docs/BACKEND_HANDOFF.md",
+    "docs/BACKEND_REVIEW.md",
+    "docs/BACKEND_RUNTIME.md",
+    "docs/ROLE03_REAUDIT.md",
+    "docs/ROLE2_HANDOFF.md",
+    "docs/ROLE2_INTEGRATION.md",
+    "docs/ROLE2_LIVE_COVERAGE.md",
+    "docs/ROLE2_OUTPUT_QUALITY.md",
+    "docs/STRICT_ROLE03_REVIEW.md",
+    "pipeline/01_load_neo4j.py",
+    "pipeline/02_build_kg.py",
+    "pipeline/03_vfc_analysis.py",
+    "pipeline/README_DATA.md",
+    "pipeline/requirements-data.txt",
+    "requirements-dev.txt",
+    "requirements-role2.lock",
+    "requirements.lock.txt",
+    "requirements.txt",
     "roles/01_DATA_AND_EVIDENCE.md",
     "roles/02_AI_AND_REVIEW_ASSISTANT.md",
     "roles/03_BACKEND_AND_GOVERNANCE.md",
     "roles/04_FRONTEND_AND_PM_WORKBENCH.md",
-    "roles/05_PITCH_DEMO_AND_SUBMISSION.md"
+    "roles/05_PITCH_DEMO_AND_SUBMISSION.md",
+    "run_pipeline.sh",
+    "services/api.py",
+    "services/ingestion.py",
+    "services/intelligence_backend.py",
+    "services/role1_resolver.py",
+    "tests/data/test_live_neo4j.py",
+    "tests/intelligence/fakes.py"
   ],
   "sessions": [
     {
@@ -20,13 +49,20 @@
       "compact_transcript": "/0/transcript.jsonl",
       "content_hash": "/0/content_hash.txt",
       "prompt": "/0/prompt.txt"
+    },
+    {
+      "metadata": "/1/metadata.json",
+      "transcript": "/1/full.jsonl",
+      "compact_transcript": "/1/transcript.jsonl",
+      "content_hash": "/1/content_hash.txt",
+      "prompt": "/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 93,
-    "cache_creation_tokens": 273812,
-    "cache_read_tokens": 2737387,
-    "output_tokens": 30986,
-    "api_call_count": 31
+    "input_tokens": 132,
+    "cache_creation_tokens": 831140,
+    "cache_read_tokens": 9122781,
+    "output_tokens": 39474,
+    "api_call_count": 44
   }
 }
