@@ -1,0 +1,43 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4MZCM15G5MJ4GGAJNMWC4AG",
+  "strategy": "manual-commit",
+  "branch": "integration",
+  "checkpoints_count": 6,
+  "files_touched": [
+    "docs/BACKEND_REAL_DATA_TESTS.md",
+    "services/api.py",
+    "services/decisions.py",
+    "services/evidence.py",
+    "services/export.py",
+    "services/providers.py",
+    "services/scoring.py",
+    "tests/backend/test_real_bmw_data.py",
+    "tests/backend/test_real_retrieval.py",
+    "tests/backend/test_real_scoring.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 280105,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 20395363,
+    "output_tokens": 51573,
+    "api_call_count": 397,
+    "subagent_tokens": {
+      "input_tokens": 393580,
+      "cache_creation_tokens": 0,
+      "cache_read_tokens": 20413013,
+      "output_tokens": 80892,
+      "api_call_count": 341
+    },
+    "subagent_tokens_complete": true
+  }
+}

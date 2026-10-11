@@ -1,0 +1,189 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4MZCM15G5MJ4GGAJNMWC4AG",
+  "session_id": "01a12834-056d-7db2-9bd8-dc47b1fc994d",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-11T07:56:12.431302Z",
+  "branch": "integration",
+  "checkpoints_count": 6,
+  "save_step_count": 6,
+  "files_touched": [
+    "docs/BACKEND_REAL_DATA_TESTS.md",
+    "services/api.py",
+    "services/decisions.py",
+    "services/evidence.py",
+    "services/export.py",
+    "services/providers.py",
+    "services/scoring.py",
+    "tests/backend/test_real_bmw_data.py",
+    "tests/backend/test_real_retrieval.py",
+    "tests/backend/test_real_scoring.py"
+  ],
+  "agent": "Codex",
+  "model": "gpt-6.1-sol",
+  "turn_id": "8aaccc47251d",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 280105,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 20395363,
+    "output_tokens": 51573,
+    "api_call_count": 397,
+    "subagent_tokens": {
+      "input_tokens": 393580,
+      "cache_creation_tokens": 0,
+      "cache_read_tokens": 20413013,
+      "output_tokens": 80892,
+      "api_call_count": 341
+    },
+    "subagent_tokens_complete": true
+  },
+  "session_metrics": {
+    "turn_count": 6
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-10-11T07:56:12.347938Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 0,
+    "human_modified": 2032,
+    "human_removed": 1116,
+    "total_committed": 0,
+    "total_lines_changed": 3148,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 4052,
+      "user_lines_removed": 33,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".env.example": 32,
+        ".gitignore": 10,
+        "AI_ENGINE_BRANCH_REVIEW.md": 3,
+        "CONFIGURATION.md": 72,
+        "IMPLEMENTATION_PLAN.md": 8,
+        "README.md": 50,
+        "compose.data.yaml": 27,
+        "config.py": 92,
+        "pipeline/00_preprocess.py": 80,
+        "pipeline/01_load_neo4j.py": 401,
+        "pipeline/02_build_kg.py": 179,
+        "pipeline/03_vfc_analysis.py": 128,
+        "pipeline/README_DATA.md": 228,
+        "pipeline/__init__.py": 1,
+        "pipeline/requirements-data.txt": 6,
+        "pipeline/study_topic_mappings.example.json": 4,
+        "roles/01_DATA_AND_EVIDENCE.md": 2,
+        "roles/02_AI_AND_REVIEW_ASSISTANT.md": 3,
+        "roles/03_BACKEND_AND_GOVERNANCE.md": 6,
+        "roles/04_FRONTEND_AND_PM_WORKBENCH.md": 3,
+        "roles/05_PITCH_DEMO_AND_SUBMISSION.md": 2,
+        "services/__init__.py": 1,
+        "services/evidence.py": 607,
+        "services/ingestion.py": 1153,
+        "tests/data/test_configuration.py": 132,
+        "tests/data/test_evidence.py": 131,
+        "tests/data/test_ingestion.py": 235,
+        "tests/data/test_live_neo4j.py": 297,
+        "tests/data/test_loader.py": 159
+      },
+      "user_removed_per_file": {
+        ".env.example": 8,
+        ".gitignore": 6,
+        "AI_ENGINE_BRANCH_REVIEW.md": 1,
+        "IMPLEMENTATION_PLAN.md": 6,
+        "config.py": 7,
+        "roles/02_AI_AND_REVIEW_ASSISTANT.md": 1,
+        "roles/03_BACKEND_AND_GOVERNANCE.md": 3,
+        "roles/04_FRONTEND_AND_PM_WORKBENCH.md": 1
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 4052,
+      "agent_lines_removed": 33
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 4052,
+      "agent_lines_removed": 33
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 4052,
+      "agent_lines_removed": 33
+    },
+    {
+      "checkpoint_number": 5,
+      "user_lines_added": 10,
+      "user_lines_removed": 10,
+      "agent_lines_added": 4051,
+      "agent_lines_removed": 33,
+      "user_added_per_file": {
+        "tests/data/test_ingestion.py": 3,
+        "tests/data/test_live_neo4j.py": 7
+      },
+      "user_removed_per_file": {
+        "tests/data/test_ingestion.py": 3,
+        "tests/data/test_live_neo4j.py": 7
+      }
+    },
+    {
+      "checkpoint_number": 6,
+      "user_lines_added": 2128,
+      "user_lines_removed": 121,
+      "agent_lines_added": 4328,
+      "agent_lines_removed": 34,
+      "user_added_per_file": {
+        "docs/BACKEND_REAL_DATA_TESTS.md": 109,
+        "pipeline/01_load_neo4j.py": 73,
+        "requirements.lock.txt": 8,
+        "requirements.txt": 1,
+        "services/api.py": 9,
+        "services/decisions.py": 28,
+        "services/evidence.py": 53,
+        "services/evidence_transaction.py": 49,
+        "services/export.py": 35,
+        "services/providers.py": 307,
+        "services/real_evidence.py": 167,
+        "services/role01_import.py": 55,
+        "services/role01_runtime.py": 13,
+        "services/scoring.py": 5,
+        "tests/backend/test_api_review.py": 4,
+        "tests/backend/test_real_bmw_data.py": 12,
+        "tests/backend/test_real_consistency.py": 66,
+        "tests/backend/test_real_governance.py": 561,
+        "tests/backend/test_real_import.py": 150,
+        "tests/backend/test_real_retrieval.py": 298,
+        "tests/backend/test_real_scoring.py": 115,
+        "tests/data/test_ingestion.py": 3,
+        "tests/data/test_live_neo4j.py": 7
+      },
+      "user_removed_per_file": {
+        "docs/BACKEND_REAL_DATA_TESTS.md": 10,
+        "pipeline/01_load_neo4j.py": 47,
+        "requirements.lock.txt": 5,
+        "requirements.txt": 1,
+        "services/api.py": 4,
+        "services/decisions.py": 4,
+        "services/evidence.py": 2,
+        "services/providers.py": 1,
+        "services/scoring.py": 1,
+        "tests/backend/test_api_review.py": 3,
+        "tests/backend/test_real_bmw_data.py": 33,
+        "tests/data/test_ingestion.py": 3,
+        "tests/data/test_live_neo4j.py": 7
+      }
+    }
+  ]
+}

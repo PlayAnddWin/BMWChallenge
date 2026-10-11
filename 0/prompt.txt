@@ -1,0 +1,69 @@
+pull changes from main into backend branch and solve conflicts. but only locally!!!
+
+---
+
+no commit i just wanna see tests pass
+
+---
+
+run the skipped tests as well
+
+---
+
+wdym, they are there
+
+---
+
+nope it is just 3
+
+---
+
+also as you can see, all tests from role/03 are done on syhtnetic data. now that role 01 was added you can run the tests on real data as well
+
+---
+
+we have more than 1000 tests on syntetic data. please plan accordingly with the real data and test on it from every angle. ose the implementations done by role01 and do not bypass them. spawn agents and delagate, when they finish spawn a review agent and compare to role03 req, and the other mds in the repo. do this again and again and loop until you finish. you can do this!
+
+---
+
+continue
+
+---
+
+continue
+
+---
+
+continue
+
+---
+
+were changes you did now only done to things concernings roles/03?
+
+---
+
+continue
+
+---
+
+continue
+
+---
+
+continue
+
+---
+
+continue
+
+---
+
+continue
+
+---
+
+where are we with the tests? ?/?
+
+---
+
+do not announce me so often, let me kno when it is finished

@@ -1,0 +1,18 @@
+{
+  "tool_use_id": "01a12845-e3a0-7882-ba55-3d00b249249c",
+  "agent_id": "01a12845-e3a0-7882-ba55-3d00b249249c",
+  "subagent_type": "default",
+  "files": [
+    "tests/backend/test_real_scoring.py",
+    "docs/BACKEND_REAL_DATA_TESTS.md"
+  ],
+  "token_usage": {
+    "input_tokens": 53314,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 1617283,
+    "output_tokens": 8573,
+    "api_call_count": 44
+  },
+  "started_at": "2026-10-11T02:03:52.301766+02:00",
+  "completed_at": "2026-10-11T06:01:20.947166+02:00"
+}

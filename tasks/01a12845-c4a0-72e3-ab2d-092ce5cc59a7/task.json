@@ -1,0 +1,19 @@
+{
+  "tool_use_id": "01a12845-c4a0-72e3-ab2d-092ce5cc59a7",
+  "agent_id": "01a12845-c4a0-72e3-ab2d-092ce5cc59a7",
+  "subagent_type": "default",
+  "files": [
+    "services/providers.py",
+    "services/evidence.py",
+    "tests/backend/test_real_retrieval.py"
+  ],
+  "token_usage": {
+    "input_tokens": 81050,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 4980543,
+    "output_tokens": 24206,
+    "api_call_count": 85
+  },
+  "started_at": "2026-10-11T02:03:44.43818+02:00",
+  "completed_at": "2026-10-11T06:01:20.947158+02:00"
+}
