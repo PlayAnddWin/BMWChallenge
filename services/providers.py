@@ -704,3 +704,7 @@ class GraphSourceProvider:
                                                        for key in sorted(types)},
                 "source_label_counts": counts(labels), "source_labels_are_opaque": True,
                 "counting_rule": "DISTINCT canonical feedback IDs; annotation and source-row counts are reported separately."}
+
+
+# Compatibility adapter for the backend branch's original-corpus workflow.
+from services.role01_provider import Role01SourceProvider

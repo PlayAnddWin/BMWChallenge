@@ -20,6 +20,40 @@ def _record(value):
     return deepcopy(dict(value))
 
 
+def requirements_with_history(state):
+    """Export every current requirement with its authoritative decision history.
+
+    History contains relevant events, not an independently verifiable full audit
+    chain. The full prefix is available through history/audit and freeze exports.
+    """
+    rows = []
+    for record in state["requirements"].values():
+        row = _record(record)
+        identity = row["id"]
+        related = {identity, row.get("run_id"), row.get("signal_id")}
+        revisions = state["revisions"].get(identity, [])
+        for revision in revisions:
+            related.update(link.get("signal_id") for link in revision.get("finding_links", []))
+            for link in revision.get("evidence_links", []):
+                related.update((link.get("source_id"), link.get("record_id")))
+            related.update((revision.get("run_id"), revision.get("signal_id")))
+        related.discard(None)
+        events = [deepcopy(event) for event in state["events"] if event["entity_id"] in related]
+        row["history"] = {"revisions": deepcopy(revisions), "events": events}
+        ranking = state["rankings"][-1] if state["rankings"] else None
+        row["rank"] = ranking["ranks"].get(identity) if ranking else None
+        row["ranking_baseline_id"] = ranking["id"] if ranking else None
+        decisions = [event for event in events if event["entity_id"] == identity and event["action"] == "STATUS_CHANGED"]
+        row["decision"] = deepcopy(decisions[-1]) if decisions else None
+        row.setdefault("problem", row.get("problem_statement"))
+        row.setdefault("linked_findings", deepcopy(row.get("finding_links", [])))
+        row.setdefault("source_references", deepcopy(row.get("evidence_links", [])))
+        row.setdefault("score_factors", deepcopy(row.get("score", {}).get("factors", {})))
+        row.setdefault("evidence_index", row.get("evidence", {}).get("value"))
+        row.setdefault("evidence_level", row.get("evidence", {}).get("level"))
+        rows.append(row)
+    return rows
+
 def export_requirements(records, format="json"):
     rows = [_record(record) for record in records]
     if format == "json":

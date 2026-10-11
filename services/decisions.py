@@ -172,6 +172,8 @@ class GovernanceService:
         else:
             record.pop("evidence_pack", None)
         record["scoring_policy"] = {"id": context["score_context"].get("policy_version", "v1"), "policy_version": context["score_context"].get("policy_version", "v1"), "weights": copy.deepcopy(context["score_context"].get("weights", WEIGHTS)), "fixed_reference_volume": context["score_context"].get("reference_volume"), "evidence_policy_version": "eci-v1"}
+        if context["score_context"].get("reference_baseline") is not None:
+            record["scoring_policy"]["reference_baseline"] = copy.deepcopy(context["score_context"]["reference_baseline"])
         record["score"] = calculate_score(context["score_context"], override=override)
         if record["score"]["policy_version"] == "v1":
             record["scoring_policy"]["weights"] = {name: factor["weight"] for name, factor in record["score"]["factors"].items()}
@@ -665,10 +667,13 @@ class GovernanceService:
                 "title": payload.get("title", rid), "description": payload.get("description", payload.get("jtbd", "Unresolved legacy proposal")),
                 "problem_statement": payload.get("jtbd", "Unresolved legacy evidence"), "smart": payload.get("smart", {}),
                 "source_scope": {}, "target_scope": {}, "finding_links": [], "evidence_links": [], "assumptions": [], "uncertainties": [{"description": "Original source lineage requires reconciliation"}],
-                "factor_proposals": {}, "has_conflict": payload.get("status") == "CONFLICTED", "derivation_key": "legacy:" + rid,
+                "jtbd": "", "claims": [], "factor_proposals": {}, "has_conflict": payload.get("status") == "CONFLICTED", "derivation_key": "legacy:" + rid,
                 "signal_id": "unresolved-legacy", "signal_revision": 1, "run_id": "legacy-import", "created_at": now(), "updated_at": now(),
                 "score_context": context, "score": calculated, "evidence": {"policy_version": "unavailable-legacy", "value": None, "level": "Unavailable", "is_probability": False},
                 "prioritization_rationale": "Legacy-v0 arithmetic preserved; no validated v1 conversion"}
+            for name, field in RequirementDraft.model_fields.items():
+                if name not in record and not field.is_required():
+                    record[name] = field.get_default(call_default_factory=True)
             prepared.append(record)
         if len({r["id"] for r in prepared}) != len(prepared):
             raise DomainError(422, "Duplicate legacy requirement IDs")

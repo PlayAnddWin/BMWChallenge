@@ -26,7 +26,7 @@ from services.audit import canonical_json
 from services.providers import UnavailableEvidenceProvider, GraphSourceProvider
 from services.role1_resolver import Role1EvidenceResolver
 from services.role1_import import Role1ImportAdapter
-from services.export import export_requirements, export_freeze, audit_bundle
+from services.export import export_requirements, export_freeze, audit_bundle, requirements_with_history
 from services.scoring import calculate_score, rank_requirements
 
 
@@ -173,7 +173,7 @@ def create_app(repository=None, evidence_provider=None, engine=None, source_prov
 
     @router.get("/requirements/export")
     def requirements_export(format: str = Query("json", pattern="^(json|csv)$")):
-        return Response(export_requirements(state()["requirements"].values(), format), media_type="application/json" if format == "json" else "text/csv", headers={"Content-Disposition": f'attachment; filename="requirements.{format}"'})
+        return Response(export_requirements(requirements_with_history(state()), format), media_type="application/json" if format == "json" else "text/csv", headers={"Content-Disposition": f'attachment; filename="requirements.{format}"'})
 
     @router.get("/requirements")
     def list_requirements(status: str | None = None, derivative: str | None = None, model: str | None = None, region: str | None = None, powertrain: str | None = None, evidence_level: str | None = None, search: str | None = None, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0)):
