@@ -3,7 +3,7 @@
   "checkpoint_id": "01M4MA0V57V87KT1Y9XVERJDFY",
   "strategy": "manual-commit",
   "branch": "feat/ai-requirements-review-engine",
-  "checkpoints_count": 4,
+  "checkpoints_count": 15,
   "files_touched": [
     ".dockerignore",
     ".env.example",
@@ -13,12 +13,15 @@
     "README.md",
     "compose.data.yaml",
     "config.py",
+    "contracts/fixture_case.json",
     "contracts/openapi.json",
     "docker-compose.yml",
     "docs/BACKEND_HANDOFF.md",
     "docs/BACKEND_REVIEW.md",
     "docs/BACKEND_RUNTIME.md",
     "docs/ROLE03_REAUDIT.md",
+    "docs/ROLE2_HANDOFF.md",
+    "docs/ROLE2_INTEGRATION.md",
     "docs/STRICT_ROLE03_REVIEW.md",
     "models.py",
     "pipeline/00_preprocess.py",
@@ -31,6 +34,8 @@
     "pipeline/__init__.py",
     "pipeline/requirements-data.txt",
     "pipeline/study_topic_mappings.example.json",
+    "requirements-dev.txt",
+    "requirements-role2.lock",
     "requirements.lock.txt",
     "requirements.txt",
     "run_pipeline.sh",
@@ -38,9 +43,12 @@
     "services/api.py",
     "services/audit.py",
     "services/decisions.py",
+    "services/drafting.py",
     "services/evidence.py",
     "services/export.py",
     "services/ingestion.py",
+    "services/intelligence_backend.py",
+    "services/llm_client.py",
     "services/migration.py",
     "services/providers.py",
     "services/repository.py",
@@ -89,7 +97,9 @@
     "tests/data/test_evidence.py",
     "tests/data/test_ingestion.py",
     "tests/data/test_live_neo4j.py",
-    "tests/data/test_loader.py"
+    "tests/data/test_loader.py",
+    "tests/intelligence/fakes.py",
+    "tests/intelligence/fixture_case.py"
   ],
   "sessions": [
     {
@@ -105,13 +115,20 @@
       "compact_transcript": "/1/transcript.jsonl",
       "content_hash": "/1/content_hash.txt",
       "prompt": "/1/prompt.txt"
+    },
+    {
+      "metadata": "/2/metadata.json",
+      "transcript": "/2/full.jsonl",
+      "compact_transcript": "/2/transcript.jsonl",
+      "content_hash": "/2/content_hash.txt",
+      "prompt": "/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 126,
-    "cache_creation_tokens": 308405,
-    "cache_read_tokens": 2883940,
-    "output_tokens": 31990,
-    "api_call_count": 42
+    "input_tokens": 324,
+    "cache_creation_tokens": 865549,
+    "cache_read_tokens": 27579859,
+    "output_tokens": 76423,
+    "api_call_count": 113
   }
 }
