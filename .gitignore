@@ -1,17 +1,19 @@
 .DS_Store
-BMW-Data
-BMW-Data/
+# Private source datasets and environments.
+/BMW-Data/
 .venv/
 scratch/
-
-# Private runtime configuration; keep the shared template tracked.
 .env
 .env.*
 !.env.example
 
-# Derived BMW evidence, model caches, exports, and local artifacts.
+# Derived evidence, caches, exports, coverage and local artifacts.
 var/
 BMW-Processed/
 output/
+data/
 __pycache__/
+*.pyc
 .pytest_cache/
+.coverage*
+htmlcov/

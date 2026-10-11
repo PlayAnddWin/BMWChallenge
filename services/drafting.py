@@ -152,8 +152,16 @@ def draft_requirements(inputs: list[tuple[Signal, EvidencePack]], planning_scope
                               "Applicability to " + ", ".join(missing) + " lacks direct issue evidence; PM must commission regional validation before claiming carryover."})
         templates = [{**template, "provenance": "AIProposed", "review_state": "unreviewed"} for template in templates]
         messages.append({"role": "user", "content": canonical({"input_signal_id": signal.id,
-                                                                 "required_assumption_templates": templates,
-                                                                 "source_problem": signal.problem_statement})})
+                                                                  "required_assumption_templates": templates,
+                                                                  "source_problem": signal.problem_statement})})
+        if pack.supporting:
+            observation = pack.supporting[0]
+            messages.append({"role": "user", "content": canonical({
+                "input_signal_id": signal.id,
+                "required_problem_observation": {"kind": "problem", "relation": "supports", "provenance": "SourceBacked",
+                    "review_state": "unreviewed", "text": observation.text, "evidence_ids": [observation.id]},
+                "instruction": "Include a problem/supports claim grounded in the supplied supporting spans. This exact original quote is a valid observation template; it is not a rationale, commercial forecast, or acceptance target. Keep inferred benefits separate as proposed rationale claims.",
+            })})
         if "discover" in (signal.issue_key + " " + signal.title).lower() or "hard to find" in signal.problem_statement.lower():
             messages.append({"role": "user", "content": canonical({
                 "input_signal_id": signal.id,

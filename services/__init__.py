@@ -1,1 +1,1 @@
-"""Callable AI stages; no HTTP or authoritative decision writes."""
+"""Evidence, AI and authoritative governance services for BMW ConceptCraft."""

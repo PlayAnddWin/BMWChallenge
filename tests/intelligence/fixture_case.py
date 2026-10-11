@@ -1,0 +1,19 @@
+"""Synthetic unit-test values; application adapters never import this module."""
+
+FIXTURE = {
+    "synthetic": True, "description": "Synthetic unit-test evidence; never BMW findings.",
+    "signal_alias": "SIG-FIXTURE-001", "source_version": "synthetic-v1",
+    "scope": {"derivatives": ["G60"], "regions": ["US"], "powertrains": []},
+    "rows": [
+        {"row": 2, "original_id": "FIXTURE-001", "canonical_id": "FB-FIXTURE-001", "powertrain_original": "BEVE", "powertrain": "BEV", "annotation": "Likes / Interior", "text": "I like the cabin, but temperature adjustment is hard to find."},
+        {"row": 3, "original_id": "FIXTURE-001", "canonical_id": "FB-FIXTURE-001", "powertrain_original": "BEVE", "powertrain": "BEV", "annotation": "DTU / HVAC", "text": "I like the cabin, but temperature adjustment is hard to find."},
+        {"row": 4, "original_id": "FIXTURE-002", "canonical_id": "FB-FIXTURE-002", "powertrain_original": "BEVE", "powertrain": "BEV", "annotation": "DTU / HVAC", "text": "Temperature adjustment is hard to find."},
+        {"row": 5, "original_id": "FIXTURE-003", "canonical_id": "FB-FIXTURE-003", "powertrain_original": "ICE", "powertrain": "ICE", "annotation": "Likes / HVAC", "text": "Temperature adjustment is easy to find."},
+    ],
+    "survey": {"id": "FACT-FIXTURE-SURVEY-001", "distribution": [0.2, 0.2, 0.2, 0.1, 0.1, 0.1, 0.1], "respondent_count": None, "relation": "direct", "scale": "seven native response categories"},
+    "sales": [{"id": "FACT-FIXTURE-SALES-US", "region": "US", "volume": 100}, {"id": "FACT-FIXTURE-SALES-EU", "region": "EU", "volume": 100}],
+    "strategy": {"id": "CHUNK-FIXTURE-STRATEGY-001", "page": 1, "text": "Synthetic strategy: improve customer usability through digital interaction design."},
+    "option": {"id": "CHUNK-FIXTURE-OPTION-001", "page": 1, "market": "DE", "text": "Synthetic German-market catalog: the fixture climate-control option is available only in Germany."},
+    "proposed_target": {"id": "metric-fixture-1", "value": 2, "unit": "actions", "operator": "<=", "milestone": "Fixture concept freeze"},
+    "expected": {"rows": 4, "comments": 3, "annotations": 4, "support": 2, "opposition": 1, "cohort": 3},
+}

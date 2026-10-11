@@ -10,7 +10,7 @@ from contracts.intelligence import (
 from services.common import EngineError, fingerprint, scope_matches
 from services.llm_client import ModelReply
 
-FIXTURE = json.loads((Path(__file__).resolve().parents[2] / "contracts/fixture_case.json").read_text())
+from tests.intelligence.fixture_case import FIXTURE
 SCOPE = Scope.model_validate(FIXTURE["scope"])
 
 

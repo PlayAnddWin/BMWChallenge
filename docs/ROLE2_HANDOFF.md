@@ -284,3 +284,9 @@ proposals remain legacy/unverified; this branch imports or relabels none of them
 Adapters for `pipeline/04_extract_signals.py`, `05_correlate_studies.py` and step 06 should be
 added after the shared baseline/provider/writer contracts are wired, keeping drafting and
 scoring/write ownership separate. No second database or frontend is introduced here.
+# Integrated runtime
+
+The real-data adapters and default API composition are now implemented in
+`services/intelligence_backend.py`. See [ROLE2_INTEGRATION.md](ROLE2_INTEGRATION.md)
+for startup and the small real OpenAI/Neo4j checks. The original independent-role
+contract and verification notes below are retained as implementation history.

@@ -6,7 +6,7 @@
 
 **OpenAI is the only LLM provider.** No `ANTHROPIC_API_KEY`, `CLAUDE_MODEL`, `LLM_API_KEY`, or provider-selection environment variable is required. A missing OpenAI key means live generation/review is unavailable; fixture tests, UI against a configured API, and non-model operations can still work. Do not silently select another provider.
 
-This file and the template are the integration contract. The reviewed engine currently reads only part of it: new path/UI settings and OpenAI-only behavior must be wired through the existing `config.py`, runner and Compose by Role 3 with Roles 1/2/4. Creating `.env` alone does not implement those missing readers.
+This file and the template are the integration contract. Root `config.py` now implements the shared reader, and Role 1's four pipeline commands consume it. [`compose.data.yaml`](compose.data.yaml) starts the verified local Neo4j service using the root credentials. Role 3 coordinates this reader and service with the application runner, API/UI and full Compose setup as the remaining branches are integrated. See [`pipeline/README_DATA.md`](pipeline/README_DATA.md) for the working data-layer setup and verification commands.
 
 ## Variables and Consumers
 
@@ -21,8 +21,11 @@ This file and the template are the integration contract. The reviewed engine cur
 | `NEO4J_URI` | `bolt://localhost:7687` | Backend/data graph connection |
 | `NEO4J_USER` | `neo4j` | Graph authentication; shared with Compose initialization |
 | `NEO4J_PASSWORD` | `bmwpassword` | Existing local development password; shared with Compose |
+| `NEO4J_DATABASE` | `neo4j` | Evidence import/retrieval and backend persistence database |
 | `API_HOST` | `0.0.0.0` | Backend listen address, not a UI destination |
 | `API_PORT` | `8000` | Backend listen/published port |
+| `API_PREFIX` | `/api` | Backend contract route prefix |
+| `BACKEND_ADAPTER_FACTORY` | Empty | Optional trusted Role 2/custom adapter factory; real Role 1 adapters are built in |
 | `API_BASE_URL` | `http://localhost:${API_PORT}` | Frontend API origin; dotenv resolves the port reference |
 | `STREAMLIT_SERVER_ADDRESS` | `0.0.0.0` | Streamlit listen address |
 | `STREAMLIT_SERVER_PORT` | `8501` | Streamlit listen/published port |
@@ -37,12 +40,12 @@ policy is recorded with results/cache keys; setting `OPENAI_MODEL` still overrid
 
 ## Local Setup
 
-1. Copy `.env.example` to `.env` at the repository root.
+1. Create `.env` from `.env.example` at the repository root if a private `.env` does not already exist.
 2. Set `OPENAI_API_KEY` for the processes performing live AI calls. Frontend-only work can leave it empty and connect to a team backend through `API_BASE_URL`.
 3. Put the supplied inputs in `BMW_RAW_DATA_DIR`; conversion produces files under `BMW_DATA_DIR`.
-4. The launcher starts the backend and UI using these settings; jobs/exporters use the same root-resolved paths.
+4. Run `docker compose --file compose.data.yaml up -d --wait`, then the pipeline commands documented in `pipeline/README_DATA.md`. The application launcher/backend/UI are integrated through Role 3; jobs/exporters use the same root-resolved paths.
 
-Root `config.py` must explicitly load the root `.env` with process-environment precedence (`override=False`). Resolve relative paths against the repository root, never a caller's current directory. Parse/validate ports and URLs centrally; require OpenAI credentials at the live-model boundary rather than breaking unrelated UI/fixture imports.
+Root `config.py` loads the root `.env` with process-environment precedence (`override=False`). Relative paths resolve against the repository root, never a caller's current directory. Ports and graph/API URLs are parsed/validated centrally, secret fields have masked representations, and validation errors omit rejected input values. Require OpenAI credentials at the live-model boundary rather than breaking unrelated data/UI/fixture imports. `tests/data/test_configuration.py` verifies environment precedence, port interpolation, path resolution, credential-safe errors and CLI execution from another directory.
 
 Do not load a separate `.env` from `pipeline/`, `services/`, or `ui/`. The loader may run once in each process; application modules import the resulting settings. Never include the key/password in diagnostic output.
 
