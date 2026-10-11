@@ -101,6 +101,39 @@ python -c "from config import get_settings; import uvicorn; s = get_settings(); 
 through the API; the launcher's legacy full mode expects standalone generation
 scripts that are not part of this integrated implementation.
 
+### Start the PM workbench
+
+With the API running, start the frontend locally:
+
+```bash
+python -m ui
+```
+
+The launcher loads the shared `.env` and applies the configured Streamlit address
+and port before startup. Open **http://localhost:8501** with the default settings.
+The client uses `API_BASE_URL` and `API_PREFIX` for all reads, actions and downloads.
+
+To start only the UI container against the existing API service:
+
+```bash
+docker compose --profile ui up -d --build --no-deps ui
+```
+
+The workbench includes the ranked portfolio, requirement/evidence/priority/history
+panels, cited review assistant, scoped analysis and immutable review packages.
+All writes go through the API with explicit PM actions and revision checks.
+
+An explicit read-only snapshot can be opened after exporting the full list:
+
+```bash
+python pipeline/09_export_report.py
+python -m ui -- --snapshot
+```
+
+Synthetic previews are available through `python -m ui -- --fixtures` or
+`--mock`; each is labelled and never selected automatically after an API failure.
+Frontend checks: `python -m pytest tests/frontend -q`.
+
 ## Configuration
 
 `config.py` is the single settings reader. It loads root `.env` with process
@@ -122,7 +155,7 @@ environment precedence and resolves relative paths against the repository root.
 
 Compose forwards model credentials only to the API, mounts raw data read-only,
 and mounts processed data, caches and exports writable. The optional `ui` profile
-is prepared for the frontend implementation and uses the API service hostname.
+runs the frontend using the API service hostname.
 
 ## Generate and review requirements
 
@@ -179,15 +212,15 @@ through `python -m services.migration --help`.
 
 - `pipeline/`: raw conversion, graph import/summaries and export CLI.
 - `services/`: evidence retrieval, AI agents, API, scoring and transactional governance.
+- `ui/`, `pipeline/08_streamlit_ui.py`: the thin Streamlit workbench and HTTP adapter.
 - `models.py`, `contracts/intelligence.py`: backend and AI DTOs.
 - `contracts/openapi.json`: published HTTP schema; regenerate with
   `PYTHONPATH=.:tests/backend python tests/backend/generate_contracts.py`.
-- `tests/{data,backend,intelligence}/`: isolated parser, backend and AI checks.
-- `roles/`: remaining frontend and presentation assignments.
+- `tests/{data,backend,intelligence,frontend}/`: parser, backend, AI and workbench checks.
 - `var/`: ignored processed data, caches and exports. `BMW-Data/` and `.env` are also ignored.
 
 Unit checks can be selected explicitly with
-`python -m pytest tests/data tests/backend tests/intelligence`. Live graph/model
+`python -m pytest tests/data tests/backend tests/intelligence tests/frontend`. Live graph/model
 checks are opt-in; graph checks use disposable test instances and model checks
 may make external calls. `tests/backend/graph_restart_probe.py` is the retained
 dedicated-graph restart verification utility.

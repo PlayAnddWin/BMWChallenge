@@ -1,0 +1,13 @@
+# Role 4 theme: Apple HIG-inspired light appearance. Fonts and components are refined in ui/theme.py.
+[theme]
+base = "light"
+primaryColor = "#0071E3"
+backgroundColor = "#F5F5F7"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#1D1D1F"
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false
