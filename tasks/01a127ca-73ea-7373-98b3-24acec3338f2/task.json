@@ -1,0 +1,22 @@
+{
+  "tool_use_id": "01a127ca-73ea-7373-98b3-24acec3338f2",
+  "agent_id": "01a127ca-73ea-7373-98b3-24acec3338f2",
+  "subagent_type": "default",
+  "files": [
+    "services/decisions.py",
+    "services/repository.py",
+    "tests/backend/test_api_review.py",
+    "tests/backend/test_decision_review.py",
+    "tests/backend/test_repository_review.py",
+    "tests/backend/test_turn_integrity_review.py"
+  ],
+  "token_usage": {
+    "input_tokens": 45383,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 1011085,
+    "output_tokens": 6788,
+    "api_call_count": 24
+  },
+  "started_at": "2026-10-10T23:49:02.814975+02:00",
+  "completed_at": "2026-10-11T00:06:15.771018+02:00"
+}

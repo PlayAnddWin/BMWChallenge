@@ -1,0 +1,21 @@
+{
+  "tool_use_id": "01a127be-6506-7bb3-a0b7-70a7b01a4f12",
+  "agent_id": "01a127be-6506-7bb3-a0b7-70a7b01a4f12",
+  "subagent_type": "default",
+  "files": [
+    "services/decisions.py",
+    "services/repository.py",
+    "services/scoring.py",
+    "services/api.py",
+    "tests/backend/test_governance_reaudit.py"
+  ],
+  "token_usage": {
+    "input_tokens": 71640,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 2120977,
+    "output_tokens": 9641,
+    "api_call_count": 38
+  },
+  "started_at": "2026-10-10T23:35:52.560111+02:00",
+  "completed_at": "2026-10-11T00:06:15.770949+02:00"
+}

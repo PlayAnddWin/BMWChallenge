@@ -1,0 +1,17 @@
+{
+  "tool_use_id": "01a127d7-2149-75a2-954f-361e5c568f8a",
+  "agent_id": "01a127d7-2149-75a2-954f-361e5c568f8a",
+  "subagent_type": "default",
+  "files": [
+    "tests/backend/test_final_acceptance_partitions.py"
+  ],
+  "token_usage": {
+    "input_tokens": 59372,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 1016047,
+    "output_tokens": 3025,
+    "api_call_count": 20
+  },
+  "started_at": "2026-10-11T00:02:53.758119+02:00",
+  "completed_at": "2026-10-11T00:06:15.771053+02:00"
+}

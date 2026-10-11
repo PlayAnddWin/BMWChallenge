@@ -1,0 +1,9 @@
+you are now a harsh reviewer and check the testcase coverage, all cases need to pe covered, everything in roles/03 needs to be implemented and coherent with implementationplanmd and challengespecificationmd. you review everything that is documented in /docs as well as what  had to be done by roles/03 and do not be easy on the guy that implemented. review everything, outline the problems and spawn an agent to clarify and solve the eventual problems, then verify what this agent did and review again. loop again and again until you find no more mistakes (but do not be easy look even for the littlest mistakes or overcomes) also check if tests covr all possible cases and that there is no pointless redundancy that makes the system heavier. keep going!
+
+---
+
+spawn a new agent when you finish reveiwing and fixing and let him review again with a frsch mind as you might be tired
+
+---
+
+loop this not only oce
