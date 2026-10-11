@@ -1,0 +1,41 @@
+check /docs and then verify the implementation against roles/03 and implementationplanmd and challenge specificationmd. also ensure the "ties" to the other roles/01/02/04 are as they would be expected. ONLY role 03 related code should be implemented. review and let me know
+
+---
+
+should we fix anything or wait for merging?
+
+---
+
+spawn an agent to do this
+
+---
+
+test the real 38 neo4j as well
+
+---
+
+test docker neo4j as well
+
+---
+
+you are now a harsh reviewer and check the testcase coverage, all cases need to pe covered, everything in roles/03 needs to be implemented and coherent with implementationplanmd and challengespecificationmd. you review everything that is documented in /docs as well as what  had to be done by roles/03 and do not be easy on the guy that implemented. review everything, outline the problems and spawn an agent to clarify and solve the eventual problems, then verify what this agent did and review again. loop again and again until you find no more mistakes (but do not be easy look even for the littlest mistakes or overcomes) also check if tests covr all possible cases and that there is no pointless redundancy that makes the system heavier. keep going!
+
+---
+
+continue
+
+---
+
+continue
+
+---
+
+continue dear
+
+---
+
+continue you still have wirk to do
+
+---
+
+continue dear

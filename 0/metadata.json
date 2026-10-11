@@ -1,0 +1,201 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4MYHZ15A4DDY8FM5BBR9MNV",
+  "session_id": "01a12793-b75f-7381-a315-320094dff35b",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-11T07:41:43.71408Z",
+  "branch": "backend",
+  "checkpoints_count": 6,
+  "save_step_count": 6,
+  "files_touched": [
+    ".gitignore",
+    "requirements.lock.txt",
+    "services/api.py"
+  ],
+  "agent": "Codex",
+  "model": "gpt-6.1-sol",
+  "turn_id": "74e48fc07ad7",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 240163,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 18078121,
+    "output_tokens": 37279,
+    "api_call_count": 251,
+    "subagent_tokens": {
+      "input_tokens": 264799,
+      "cache_creation_tokens": 0,
+      "cache_read_tokens": 11290973,
+      "output_tokens": 59817,
+      "api_call_count": 205
+    },
+    "subagent_tokens_complete": true
+  },
+  "session_metrics": {
+    "turn_count": 6
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-10-11T07:41:43.646363Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 309,
+    "human_modified": 116,
+    "human_removed": 0,
+    "total_committed": 309,
+    "total_lines_changed": 2512,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 15145,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".dockerignore": 20,
+        ".env.example": 20,
+        ".gitignore": 14,
+        "Dockerfile": 9,
+        "config.py": 112,
+        "contracts/fixture_case.json": 6407,
+        "contracts/openapi.json": 1962,
+        "docker-compose.yml": 58,
+        "docs/BACKEND_HANDOFF.md": 35,
+        "docs/BACKEND_REVIEW.md": 109,
+        "docs/BACKEND_RUNTIME.md": 60,
+        "models.py": 459,
+        "pipeline/07_pm_review_api.py": 2,
+        "pipeline/09_export_report.py": 40,
+        "requirements.lock.txt": 69,
+        "requirements.txt": 19,
+        "run_pipeline.sh": 31,
+        "services/api.py": 605,
+        "services/audit.py": 72,
+        "services/decisions.py": 397,
+        "services/export.py": 73,
+        "services/migration.py": 54,
+        "services/providers.py": 74,
+        "services/repository.py": 162,
+        "services/scoring.py": 342,
+        "tests/backend/conftest.py": 46,
+        "tests/backend/generate_contracts.py": 62,
+        "tests/backend/graph_restart_probe.py": 47,
+        "tests/backend/test_api_boundaries.py": 50,
+        "tests/backend/test_api_review.py": 920,
+        "tests/backend/test_audit_export.py": 99,
+        "tests/backend/test_cli_review.py": 131,
+        "tests/backend/test_contract_artifacts.py": 30,
+        "tests/backend/test_decision_review.py": 707,
+        "tests/backend/test_decisions.py": 137,
+        "tests/backend/test_fresh_api_review.py": 108,
+        "tests/backend/test_fresh_export_review.py": 12,
+        "tests/backend/test_fresh_governance_review.py": 89,
+        "tests/backend/test_fresh_scoring_review.py": 77,
+        "tests/backend/test_neo4j_integration.py": 285,
+        "tests/backend/test_repository_review.py": 410,
+        "tests/backend/test_review.py": 165,
+        "tests/backend/test_runtime.py": 38,
+        "tests/backend/test_scoring.py": 166,
+        "tests/backend/test_scoring_properties.py": 45,
+        "tests/backend/test_scoring_review.py": 316
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 15145,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 15145,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 1928,
+      "user_lines_removed": 197,
+      "agent_lines_added": 15289,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "contracts/fixture_case.json": 1816,
+        "docs/BACKEND_HANDOFF.md": 15,
+        "docs/BACKEND_REVIEW.md": 10,
+        "models.py": 25,
+        "services/api.py": 49,
+        "tests/backend/generate_contracts.py": 13
+      },
+      "user_removed_per_file": {
+        "contracts/fixture_case.json": 180,
+        "docs/BACKEND_HANDOFF.md": 1,
+        "models.py": 1,
+        "services/api.py": 14,
+        "tests/backend/generate_contracts.py": 1
+      }
+    },
+    {
+      "checkpoint_number": 5,
+      "user_lines_added": 1903,
+      "user_lines_removed": 196,
+      "agent_lines_added": 15321,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "contracts/fixture_case.json": 1816,
+        "models.py": 25,
+        "services/api.py": 49,
+        "tests/backend/generate_contracts.py": 13
+      },
+      "user_removed_per_file": {
+        "contracts/fixture_case.json": 180,
+        "models.py": 1,
+        "services/api.py": 14,
+        "tests/backend/generate_contracts.py": 1
+      }
+    },
+    {
+      "checkpoint_number": 6,
+      "user_lines_added": 3038,
+      "user_lines_removed": 280,
+      "agent_lines_added": 15331,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "contracts/fixture_case.json": 1818,
+        "contracts/openapi.json": 49,
+        "docs/BACKEND_HANDOFF.md": 13,
+        "models.py": 62,
+        "requirements.lock.txt": 3,
+        "services/api.py": 253,
+        "services/decisions.py": 52,
+        "services/providers.py": 18,
+        "services/repository.py": 8,
+        "tests/backend/conftest.py": 1,
+        "tests/backend/generate_contracts.py": 13,
+        "tests/backend/test_api_review.py": 1,
+        "tests/backend/test_import_retrieval_contract.py": 142,
+        "tests/backend/test_metric_operator_contract.py": 64,
+        "tests/backend/test_neo4j_integration.py": 81,
+        "tests/backend/test_override_disable_contract.py": 55,
+        "tests/backend/test_regeneration_api_lifecycle.py": 109,
+        "tests/backend/test_review_contract_fixes.py": 296
+      },
+      "user_removed_per_file": {
+        "contracts/fixture_case.json": 181,
+        "docs/BACKEND_HANDOFF.md": 3,
+        "models.py": 5,
+        "requirements.lock.txt": 2,
+        "services/api.py": 65,
+        "services/decisions.py": 14,
+        "services/providers.py": 6,
+        "services/repository.py": 1,
+        "tests/backend/conftest.py": 1,
+        "tests/backend/generate_contracts.py": 1,
+        "tests/backend/test_api_review.py": 1
+      }
+    }
+  ]
+}
